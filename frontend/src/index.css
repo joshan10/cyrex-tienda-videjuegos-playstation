@@ -1,0 +1,81 @@
+/* ── Google Fonts ───────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=Exo+2:wght@300;400;500;600&display=swap');
+
+/* ── Tailwind CSS v4 ────────────────────────────── */
+@import "tailwindcss";
+@import "./components/componentes.css";
+
+/* ── Colores personalizados de marca (en español) ─ */
+@theme {
+  /* Colores principales de CYREX */
+  --color-purpura-oscuro:    #2E1065;
+  --color-magenta-vibrante:  #D946EF;
+  --color-blanco-frio:       #F5F5FF;
+
+  /* Paleta extendida */
+  --color-purpura-profundo:  #1A0A3D;
+  --color-purpura-medio:     #4A1D8A;
+  --color-magenta-oscuro:    #A21CAF;
+  --color-magenta-tenue:     rgba(217, 70, 239, 0.12);
+  --color-borde-magenta:     rgba(217, 70, 239, 0.35);
+
+  /* Fuentes personalizadas */
+  --font-titulo: 'Orbitron', sans-serif;
+  --font-cuerpo: 'Exo 2', sans-serif;
+}
+
+/* ── Variables CSS globales (compatibilidad) ────── */
+:root {
+  --purpura-oscuro:    #2E1065;
+  --magenta-vibrante:  #D946EF;
+  --blanco-frio:       #F5F5FF;
+
+  --purpura-profundo:  #1A0A3D;
+  --purpura-medio:     #4A1D8A;
+  --magenta-oscuro:    #A21CAF;
+  --magenta-tenue:     rgba(217, 70, 239, 0.12);
+  --borde-magenta:     rgba(217, 70, 239, 0.35);
+
+  --fuente-titulo: 'Orbitron', sans-serif;
+  --fuente-cuerpo: 'Exo 2', sans-serif;
+
+  --espacio-xs:  0.5rem;
+  --espacio-sm:  1rem;
+  --espacio-md:  1.5rem;
+  --espacio-lg:  2rem;
+  --espacio-xl:  3rem;
+  --espacio-2xl: 5rem;
+
+  --radio-sm: 4px;
+  --radio-md: 8px;
+  --radio-lg: 16px;
+
+  --sombra-magenta: 0 0 24px rgba(217, 70, 239, 0.3);
+  --sombra-suave:   0 4px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Reset base ─────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--fuente-cuerpo);
+  background-color: var(--purpura-oscuro);
+  color: var(--blanco-frio);
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+}
