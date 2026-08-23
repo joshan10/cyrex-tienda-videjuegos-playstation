@@ -4,6 +4,10 @@ import { usuariosAPI, productosAPI, ordenesAPI } from '../../services/api';
 import LayoutPrincipal from '../../components/layout/LayoutPrincipal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import { uploadAPI } from '../../services/api';
+
+const API_URL = 'http://localhost:4000'; // base para uploads
+
 
 const tabs = [
   { id: 'resumen',   label: 'Resumen' },
@@ -21,10 +25,16 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Estado para modales de edición
+  // Estado para modales de edición de productos
   const [editingProduct, setEditingProduct] = useState(null);
   const [productForm, setProductForm] = useState({ nombre: '', descripcion: '', precio: '', stock: '', plataforma: 'PlayStation', imagen_url: '' });
   const [showProductModal, setShowProductModal] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+
+  // Estado para modales de edición de usuarios
+  const [editingUser, setEditingUser] = useState(null);
+  const [userForm, setUserForm] = useState({ nombre: '', apellido: '', correo: '', telefono: '', direccion: '', rol_id: 3, estado: 'activo' });
+  const [showUserModal, setShowUserModal] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -60,6 +70,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const openUserModal = (user = null) => {
+    if (user) {
+      setEditingUser(user);
+      setUserForm({
+        nombre: user.nombre,
+        apellido: user.apellido,
+        correo: user.correo,
+        telefono: user.telefono,
+        direccion: user.direccion,
+        rol_id: user.rol_id,
+        estado: user.estado
+      });
+      setShowUserModal(true);
+    }
+  };
+
+  const handleUserSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingUser) {
+        await usuariosAPI.update(editingUser.id, userForm);
+      }
+      setShowUserModal(false);
+      loadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // --- Productos ---
   const openProductModal = (product = null) => {
     if (product) {
@@ -76,14 +115,24 @@ export default function AdminDashboard() {
       setEditingProduct(null);
       setProductForm({ nombre: '', descripcion: '', precio: '', stock: '', plataforma: 'PlayStation', imagen_url: '' });
     }
+    setImageFile(null);
     setShowProductModal(true);
   };
 
   const handleProductSubmit = async (e) => {
     e.preventDefault();
     try {
+      let finalImageUrl = productForm.imagen_url;
+
+      // Subir imagen si se seleccionó un archivo nuevo
+      if (imageFile) {
+        const uploadRes = await uploadAPI.uploadImage(imageFile);
+        finalImageUrl = uploadRes.url;
+      }
+
       const data = {
         ...productForm,
+        imagen_url: finalImageUrl,
         precio: parseFloat(productForm.precio),
         stock: parseInt(productForm.stock) || 0
       };
@@ -131,6 +180,14 @@ export default function AdminDashboard() {
     procesando: 'bg-blue-500/15 text-blue-400',
     completada: 'bg-emerald-500/15 text-emerald-400',
     cancelada: 'bg-red-500/15 text-red-400'
+  };
+
+  const getProductImage = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('/uploads')) return `${API_URL}${url}`;
+    // Fallback para seed data anterior
+    return `https://via.placeholder.com/300x400/171b24/c5a46d?text=Cyrex+Game`;
   };
 
   if (loading) {
@@ -239,14 +296,22 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        {u.estado === 'activo' && u.id !== user?.id && (
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => handleToggleUserStatus(u.id)}
-                            className="text-xs text-red-400 transition hover:text-red-300"
+                            onClick={() => openUserModal(u)}
+                            className="text-xs text-[var(--color-accent)] transition hover:text-[var(--color-accent-soft)]"
                           >
-                            Desactivar
+                            Editar
                           </button>
-                        )}
+                          {u.estado === 'activo' && u.id !== user?.id && (
+                            <button
+                              onClick={() => handleToggleUserStatus(u.id)}
+                              className="text-xs text-red-400 transition hover:text-red-300"
+                            >
+                              Desactivar
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -265,6 +330,9 @@ export default function AdminDashboard() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {productos.map((p) => (
                 <div key={p.id} className="overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
+                  <div className="h-48 w-full overflow-hidden bg-[var(--color-bg)]">
+                    <img src={getProductImage(p.imagen_url)} alt={p.nombre} className="h-full w-full object-cover opacity-80 transition hover:opacity-100" />
+                  </div>
                   <div className="p-5">
                     <div className="mb-3 flex items-start justify-between">
                       <div>
@@ -377,10 +445,71 @@ export default function AdminDashboard() {
                 <Input label="Stock" type="number" value={productForm.stock} onChange={(e) => setProductForm(prev => ({ ...prev, stock: e.target.value }))} />
               </div>
               <Input label="Plataforma" value={productForm.plataforma} onChange={(e) => setProductForm(prev => ({ ...prev, plataforma: e.target.value }))} />
-              <Input label="URL Imagen" value={productForm.imagen_url} onChange={(e) => setProductForm(prev => ({ ...prev, imagen_url: e.target.value }))} />
+              
+              <label className="block">
+                <span className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-muted)]">Imagen del producto</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files[0])}
+                  className="w-full text-sm text-[var(--color-muted)] file:mr-4 file:rounded-xl file:border-0 file:bg-[var(--color-line)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--color-text)] hover:file:bg-[var(--color-accent)] hover:file:text-[var(--color-bg)]"
+                />
+              </label>
+
               <div className="flex justify-end gap-3 pt-2">
                 <Button variant="secondary" type="button" onClick={() => setShowProductModal(false)}>Cancelar</Button>
                 <Button type="submit">{editingProduct ? 'Actualizar' : 'Crear'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Modal de Usuario */}
+      {showUserModal && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-[color:rgba(9,10,15,.72)] px-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-[0_20px_60px_rgba(0,0,0,.45)]">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="font-display text-xl text-[var(--color-text)]">
+                Editar Usuario
+              </h3>
+              <Button variant="ghost" onClick={() => setShowUserModal(false)}>Cerrar</Button>
+            </div>
+            <form onSubmit={handleUserSubmit} className="space-y-4">
+              <Input label="Nombre" value={userForm.nombre} onChange={(e) => setUserForm(prev => ({ ...prev, nombre: e.target.value }))} />
+              <Input label="Apellido" value={userForm.apellido} onChange={(e) => setUserForm(prev => ({ ...prev, apellido: e.target.value }))} />
+              <Input label="Correo" type="email" value={userForm.correo} onChange={(e) => setUserForm(prev => ({ ...prev, correo: e.target.value }))} />
+              <Input label="Teléfono" value={userForm.telefono} onChange={(e) => setUserForm(prev => ({ ...prev, telefono: e.target.value }))} />
+              <Input label="Dirección" value={userForm.direccion} onChange={(e) => setUserForm(prev => ({ ...prev, direccion: e.target.value }))} />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-muted)]">Rol</span>
+                  <select
+                    value={userForm.rol_id}
+                    onChange={(e) => setUserForm(prev => ({ ...prev, rol_id: parseInt(e.target.value) }))}
+                    className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                  >
+                    <option value={1}>Administrador</option>
+                    <option value={2}>Empleado</option>
+                    <option value={3}>Cliente</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-muted)]">Estado</span>
+                  <select
+                    value={userForm.estado}
+                    onChange={(e) => setUserForm(prev => ({ ...prev, estado: e.target.value }))}
+                    className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                  >
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="secondary" type="button" onClick={() => setShowUserModal(false)}>Cancelar</Button>
+                <Button type="submit">Guardar</Button>
               </div>
             </form>
           </div>

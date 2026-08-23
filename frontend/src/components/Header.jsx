@@ -58,6 +58,18 @@ export default function Header() {
               {link.label}
             </NavLink>
           ))}
+          {user && (
+            <NavLink
+              to="/tienda"
+              className={({ isActive }) =>
+                `text-xs font-bold uppercase tracking-[0.2em] transition-colors ${
+                  isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-text)] hover:text-[var(--color-accent)]'
+                }`
+              }
+            >
+              Tienda
+            </NavLink>
+          )}
         </nav>
 
         {/* Sección derecha: usuario o botón login */}
@@ -140,6 +152,15 @@ export default function Header() {
                 {link.label}
               </NavLink>
             ))}
+            {user && (
+              <NavLink
+                to="/tienda"
+                onClick={() => setMenuOpen(false)}
+                className="text-sm font-semibold text-[var(--color-text)] transition-colors hover:text-[var(--color-accent)]"
+              >
+                Tienda
+              </NavLink>
+            )}
             {user ? (
               <>
                 <NavLink

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { productosAPI, ordenesAPI } from '../../services/api';
 import LayoutPrincipal from '../../components/layout/LayoutPrincipal';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
 
 const tabs = [
   { id: 'productos', label: 'Productos' },
@@ -14,6 +16,11 @@ export default function EmpleadoDashboard() {
   const [productos, setProductos] = useState([]);
   const [ordenes, setOrdenes] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Estado para el modal de edición de productos
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [productForm, setProductForm] = useState({ stock: '', estado: 'activo' });
+  const [showProductModal, setShowProductModal] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -32,6 +39,30 @@ export default function EmpleadoDashboard() {
       console.error('Error cargando datos:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openProductModal = (product) => {
+    setEditingProduct(product);
+    setProductForm({
+      stock: String(product.stock),
+      estado: product.estado
+    });
+    setShowProductModal(true);
+  };
+
+  const handleProductSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const data = {
+        stock: parseInt(productForm.stock) || 0,
+        estado: productForm.estado
+      };
+      await productosAPI.update(editingProduct.id, data);
+      setShowProductModal(false);
+      loadData();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -111,6 +142,11 @@ export default function EmpleadoDashboard() {
                     <p className="font-display text-lg text-[var(--color-accent)]">{formatPrice(p.precio)}</p>
                     <p className="text-sm text-[var(--color-text)]">Stock: <span className="font-semibold">{p.stock}</span></p>
                   </div>
+                  <div className="mt-4">
+                    <Button variant="secondary" className="w-full !py-2 !text-xs" onClick={() => openProductModal(p)}>
+                      Editar Inventario
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -170,6 +206,41 @@ export default function EmpleadoDashboard() {
           </div>
         )}
       </section>
+
+      {/* Modal de Producto para Empleado */}
+      {showProductModal && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-[color:rgba(9,10,15,.72)] px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-[0_20px_60px_rgba(0,0,0,.45)]">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="font-display text-lg text-[var(--color-text)]">
+                Editar Inventario
+              </h3>
+              <Button variant="ghost" onClick={() => setShowProductModal(false)}>Cerrar</Button>
+            </div>
+            <p className="mb-4 text-sm text-[var(--color-muted)]">Editando: <strong className="text-[var(--color-text)]">{editingProduct?.nombre}</strong></p>
+            <form onSubmit={handleProductSubmit} className="space-y-4">
+              <Input label="Stock Disponible" type="number" value={productForm.stock} onChange={(e) => setProductForm(prev => ({ ...prev, stock: e.target.value }))} />
+              
+              <label className="block">
+                <span className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-muted)]">Estado del Producto</span>
+                <select
+                  value={productForm.estado}
+                  onChange={(e) => setProductForm(prev => ({ ...prev, estado: e.target.value }))}
+                  className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                >
+                  <option value="activo">Activo</option>
+                  <option value="inactivo">Inactivo</option>
+                </select>
+              </label>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="secondary" type="button" onClick={() => setShowProductModal(false)}>Cancelar</Button>
+                <Button type="submit">Actualizar</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </LayoutPrincipal>
   );
 }

@@ -13,6 +13,7 @@ import RecoverPassword from './pages/RecoverPassword';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
 import EmpleadoDashboard from './pages/dashboard/EmpleadoDashboard';
 import ClienteDashboard from './pages/dashboard/ClienteDashboard';
+import Tienda from './pages/Tienda';
 
 function App() {
   return (
@@ -26,6 +27,14 @@ function App() {
         <Route path="/contacto" element={<Contacto />} />
 
         {/* Protected Routes */}
+        <Route
+          path="/tienda"
+          element={
+            <ProtectedRoute>
+              <Tienda />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/dashboard/admin"
           element={

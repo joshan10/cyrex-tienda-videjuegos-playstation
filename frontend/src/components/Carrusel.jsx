@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { games } from '../data/games';
 import Button from './ui/Button';
 
@@ -30,6 +31,7 @@ const imageByFile = {
 export default function Carrusel() {
   const [index, setIndex] = useState(0);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const items = useMemo(
     () => games.map((game) => ({ ...game, src: imageByFile[game.image] })),
@@ -72,7 +74,7 @@ export default function Carrusel() {
             <article
               key={game.title}
               className="grid min-w-full cursor-pointer gap-5 rounded-xl md:grid-cols-[1.15fr_1fr]"
-              onClick={() => navigate('/iniciar-sesion')}
+              onClick={() => navigate(user ? '/tienda' : '/iniciar-sesion')}
             >
               <div className="overflow-hidden rounded-xl">
                 <img

@@ -25,6 +25,26 @@ async function request(endpoint, options = {}) {
   return data;
 }
 
+export const uploadAPI = {
+  uploadImage: async (file) => {
+    const token = localStorage.getItem('cyrex_token');
+    const formData = new FormData();
+    formData.append('imagen', file);
+
+    const response = await fetch(`${API_URL}/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` })
+      },
+      body: formData
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw { status: response.status, ...data };
+    return data;
+  }
+};
+
 // =====================================================
 // AUTH
 // =====================================================
