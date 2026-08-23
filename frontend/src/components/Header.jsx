@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import logo from '../assets/icons/Cyrex.png';
+import logo from '../assets/icons/logo-sin-fondo.png';
 import Button from './ui/Button';
 
 const links = [
