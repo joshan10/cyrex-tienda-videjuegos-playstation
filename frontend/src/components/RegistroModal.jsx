@@ -1,0 +1,152 @@
+import { useMemo, useState } from 'react';
+import Button from './ui/Button';
+import Input from './ui/Input';
+import Select from './ui/Select';
+
+const typeOptions = [
+  { value: '', label: 'Selecciona una opcion' },
+  { value: 'cc', label: 'Cedula de ciudadania' },
+  { value: 'ce', label: 'Cedula de extranjeria' },
+  { value: 'pasaporte', label: 'Pasaporte' }
+];
+
+const initialForm = {
+  nombre: '',
+  apellido: '',
+  tipoDocumento: '',
+  numeroDocumento: '',
+  direccion: '',
+  telefono: '',
+  correo: '',
+  password: '',
+  confirmPassword: ''
+};
+
+const validateEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const validatePassword = (value) => /^(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,}$/.test(value);
+const validatePhone = (value) => /^\+?\d{7,15}$/.test(value);
+
+export default function RegistroModal({ isOpen, onClose }) {
+  const [form, setForm] = useState(initialForm);
+  const [errors, setErrors] = useState({});
+
+  const validators = useMemo(
+    () => ({
+      nombre: (value) => (!value.trim() ? 'El nombre es obligatorio.' : ''),
+      apellido: (value) => (!value.trim() ? 'El apellido es obligatorio.' : ''),
+      tipoDocumento: (value) => (!value ? 'Selecciona un tipo de documento.' : ''),
+      numeroDocumento: (value) => (!/^\d{6,15}$/.test(value) ? 'Ingresa un numero de documento valido.' : ''),
+      direccion: (value) => (value.trim().length < 6 ? 'La direccion debe tener al menos 6 caracteres.' : ''),
+      telefono: (value) => (!validatePhone(value) ? 'Telefono invalido. Usa solo numeros con prefijo opcional +.' : ''),
+      correo: (value) => (!validateEmail(value) ? 'Correo electronico invalido.' : ''),
+      password: (value) =>
+        !validatePassword(value)
+          ? 'La contrasena debe tener 8+ caracteres, una mayuscula, un numero y un simbolo.'
+          : '',
+      confirmPassword: (value) => (value !== form.password ? 'Las contrasenas no coinciden.' : '')
+    }),
+    [form.password]
+  );
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: validators[name](value) }));
+
+    if (name === 'password') {
+      setErrors((prev) => ({
+        ...prev,
+        password: validators.password(value),
+        confirmPassword: validators.confirmPassword(form.confirmPassword)
+      }));
+    }
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const nextErrors = {};
+
+    Object.keys(form).forEach((key) => {
+      const error = validators[key](form[key]);
+      if (error) nextErrors[key] = error;
+    });
+
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length === 0) {
+      onClose();
+      setForm(initialForm);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-[color:rgba(9,10,15,.72)] px-4 py-8 backdrop-blur-sm">
+      <div className="w-full max-w-3xl rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-[0_20px_60px_rgba(0,0,0,.45)] md:p-8">
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="font-display text-2xl tracking-[0.1em] text-[var(--color-text)]">Crear Cuenta</h3>
+          <Button variant="ghost" onClick={onClose}>
+            Cerrar
+          </Button>
+        </div>
+
+        <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit} noValidate>
+          <Input id="nombre" name="nombre" label="Nombre" value={form.nombre} onChange={handleChange} error={errors.nombre} />
+          <Input id="apellido" name="apellido" label="Apellido" value={form.apellido} onChange={handleChange} error={errors.apellido} />
+          <Select
+            id="tipoDocumento"
+            name="tipoDocumento"
+            label="Tipo de documento"
+            value={form.tipoDocumento}
+            onChange={handleChange}
+            options={typeOptions}
+            error={errors.tipoDocumento}
+          />
+          <Input
+            id="numeroDocumento"
+            name="numeroDocumento"
+            label="Numero de documento"
+            value={form.numeroDocumento}
+            onChange={handleChange}
+            error={errors.numeroDocumento}
+          />
+          <Input
+            id="direccion"
+            name="direccion"
+            label="Direccion"
+            value={form.direccion}
+            onChange={handleChange}
+            error={errors.direccion}
+            className="md:col-span-2"
+          />
+          <Input id="telefono" name="telefono" label="Telefono" value={form.telefono} onChange={handleChange} error={errors.telefono} />
+          <Input id="correo" name="correo" type="email" label="Correo" value={form.correo} onChange={handleChange} error={errors.correo} />
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            label="Contrasena"
+            value={form.password}
+            onChange={handleChange}
+            error={errors.password}
+          />
+          <Input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            label="Confirmar contrasena"
+            value={form.confirmPassword}
+            onChange={handleChange}
+            error={errors.confirmPassword}
+          />
+          <div className="mt-2 flex justify-end gap-3 md:col-span-2">
+            <Button variant="secondary" onClick={onClose} type="button">
+              Cancelar
+            </Button>
+            <Button type="submit">Crear cuenta</Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
