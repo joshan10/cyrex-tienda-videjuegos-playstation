@@ -16,12 +16,14 @@ async function request(endpoint, options = {}) {
   };
 
   const response = await fetch(`${API_URL}${endpoint}`, config);
-  const data = await response.json();
-
+  
   if (!response.ok) {
-    throw { status: response.status, ...data };
+    const errorData = await response.json();
+    console.error('API Error:', errorData);
+    throw { status: response.status, ...errorData };
   }
 
+  const data = await response.json();
   return data;
 }
 

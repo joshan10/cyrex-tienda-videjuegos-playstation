@@ -13,7 +13,7 @@ const initialForm = {
 };
 
 const validateEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-const validatePassword = (value) => /^(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,}$/.test(value);
+const validatePassword = (value) => value.length >= 1;
 
 export default function IniciarSesion() {
   const [form, setForm] = useState(initialForm);
@@ -63,7 +63,9 @@ export default function IniciarSesion() {
     setApiError('');
 
     try {
+      console.log('Intentando login con:', form.correo);
       const data = await login(form.correo, form.password);
+      console.log('Login exitoso, data:', data);
 
       // Redirigir según rol
       switch (data.user.rol) {
@@ -77,6 +79,7 @@ export default function IniciarSesion() {
           navigate('/dashboard/cliente');
       }
     } catch (error) {
+      console.error('Error en login:', error);
       setApiError(error.error || 'Error al iniciar sesión. Intenta de nuevo.');
     } finally {
       setIsLoading(false);
