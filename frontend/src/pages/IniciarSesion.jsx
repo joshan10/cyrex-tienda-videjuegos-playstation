@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import RegistroModal from '../components/RegistroModal';
 import LayoutPrincipal from '../components/layout/LayoutPrincipal';
 import Button from '../components/ui/Button';
@@ -18,6 +19,11 @@ export default function IniciarSesion() {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const validators = useMemo(
     () => ({
@@ -34,13 +40,14 @@ export default function IniciarSesion() {
     const { name, value, type, checked } = event.target;
     const nextValue = type === 'checkbox' ? checked : value;
     setForm((prev) => ({ ...prev, [name]: nextValue }));
+    setApiError('');
 
     if (name in validators) {
       setErrors((prev) => ({ ...prev, [name]: validators[name](value) }));
     }
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const nextErrors = {
       correo: validators.correo(form.correo),
@@ -48,6 +55,32 @@ export default function IniciarSesion() {
     };
 
     setErrors(nextErrors);
+
+    // Si hay errores de validación, no enviar
+    if (Object.values(nextErrors).some((e) => e)) return;
+
+    setIsLoading(true);
+    setApiError('');
+
+    try {
+      const data = await login(form.correo, form.password);
+
+      // Redirigir según rol
+      switch (data.user.rol) {
+        case 'Administrador':
+          navigate('/dashboard/admin');
+          break;
+        case 'Empleado':
+          navigate('/dashboard/empleado');
+          break;
+        default:
+          navigate('/dashboard/cliente');
+      }
+    } catch (error) {
+      setApiError(error.error || 'Error al iniciar sesión. Intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -68,6 +101,12 @@ export default function IniciarSesion() {
             onSubmit={handleSubmit}
             noValidate
           >
+            {apiError && (
+              <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                {apiError}
+              </div>
+            )}
+
             <div className="space-y-4">
               <Input
                 id="correo"
@@ -102,8 +141,15 @@ export default function IniciarSesion() {
               Recordarme
             </label>
 
-            <Button type="submit" className="mt-6 w-full">
-              Iniciar sesion
+            <Button type="submit" className="mt-6 w-full" disabled={isLoading}>
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-bg)] border-t-transparent" />
+                  Iniciando...
+                </span>
+              ) : (
+                'Iniciar sesion'
+              )}
             </Button>
 
             <div className="mt-5 flex items-center justify-between text-sm">

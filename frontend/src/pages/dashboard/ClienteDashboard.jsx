@@ -1,0 +1,144 @@
+import { useEffect, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { ordenesAPI } from '../../services/api';
+import LayoutPrincipal from '../../components/layout/LayoutPrincipal';
+
+const tabs = [
+  { id: 'perfil', label: 'Mi Perfil' },
+  { id: 'ordenes', label: 'Mis Órdenes' }
+];
+
+export default function ClienteDashboard() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('perfil');
+  const [ordenes, setOrdenes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const data = await ordenesAPI.getAll();
+      setOrdenes(data.ordenes || []);
+    } catch (err) {
+      console.error('Error cargando órdenes:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatPrice = (p) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(p);
+  const formatDate = (d) => new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const statusColors = {
+    pendiente: 'bg-yellow-500/15 text-yellow-400',
+    procesando: 'bg-blue-500/15 text-blue-400',
+    completada: 'bg-emerald-500/15 text-emerald-400',
+    cancelada: 'bg-red-500/15 text-red-400'
+  };
+
+  if (loading) {
+    return (
+      <LayoutPrincipal>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--color-line)] border-t-[var(--color-accent)]" />
+        </div>
+      </LayoutPrincipal>
+    );
+  }
+
+  return (
+    <LayoutPrincipal>
+      <section className="mx-auto w-full max-w-6xl px-6 py-10">
+        <div className="mb-8">
+          <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-accent)]">Mi Cuenta</p>
+          <h1 className="font-display text-3xl text-[var(--color-text)] md:text-4xl">
+            Hola, {user?.nombre}
+          </h1>
+          <p className="mt-1 text-sm text-[var(--color-muted)]">Aquí puedes gestionar tus compras e información personal</p>
+        </div>
+
+        <div className="mb-8 flex flex-wrap gap-2 border-b border-[var(--color-line)] pb-4">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'bg-[var(--color-accent)] text-[var(--color-bg)]'
+                  : 'text-[var(--color-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'perfil' && (
+          <div className="max-w-2xl rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-6">
+            <h3 className="mb-4 font-display text-xl text-[var(--color-text)]">Datos Personales</h3>
+            <div className="space-y-4">
+              <div className="grid gap-1 border-b border-[var(--color-line)] pb-3">
+                <span className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Nombre completo</span>
+                <span className="text-sm font-medium text-[var(--color-text)]">{user?.nombre} {user?.apellido}</span>
+              </div>
+              <div className="grid gap-1 border-b border-[var(--color-line)] pb-3">
+                <span className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Correo electrónico</span>
+                <span className="text-sm font-medium text-[var(--color-text)]">{user?.correo}</span>
+              </div>
+              <div className="grid gap-1 border-b border-[var(--color-line)] pb-3">
+                <span className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Dirección</span>
+                <span className="text-sm font-medium text-[var(--color-text)]">{user?.direccion || 'No especificada'}</span>
+              </div>
+              <div className="grid gap-1">
+                <span className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Teléfono</span>
+                <span className="text-sm font-medium text-[var(--color-text)]">{user?.telefono || 'No especificado'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'ordenes' && (
+          <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-widest text-[var(--color-muted)]">
+                    <th className="px-5 py-4"># Orden</th>
+                    <th className="px-5 py-4">Fecha</th>
+                    <th className="px-5 py-4">Total</th>
+                    <th className="px-5 py-4">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ordenes.map((o) => (
+                    <tr key={o.id} className="border-b border-[var(--color-line)] last:border-0">
+                      <td className="px-5 py-4 font-medium text-[var(--color-text)]">#{o.id}</td>
+                      <td className="px-5 py-4 text-[var(--color-muted)]">{formatDate(o.created_at)}</td>
+                      <td className="px-5 py-4 font-semibold text-[var(--color-accent)]">{formatPrice(o.total)}</td>
+                      <td className="px-5 py-4">
+                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusColors[o.estado]}`}>
+                          {o.estado}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {ordenes.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
+                        Aún no has realizado ninguna compra.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+    </LayoutPrincipal>
+  );
+}

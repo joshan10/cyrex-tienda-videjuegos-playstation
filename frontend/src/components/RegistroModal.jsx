@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import Select from './ui/Select';
@@ -29,6 +31,11 @@ const validatePhone = (value) => /^\+?\d{7,15}$/.test(value);
 export default function RegistroModal({ isOpen, onClose }) {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
   const validators = useMemo(
     () => ({
@@ -52,6 +59,7 @@ export default function RegistroModal({ isOpen, onClose }) {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: validators[name](value) }));
+    setApiError('');
 
     if (name === 'password') {
       setErrors((prev) => ({
@@ -62,7 +70,7 @@ export default function RegistroModal({ isOpen, onClose }) {
     }
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const nextErrors = {};
 
@@ -72,9 +80,46 @@ export default function RegistroModal({ isOpen, onClose }) {
     });
 
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length === 0) {
+
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setIsLoading(true);
+    setApiError('');
+
+    try {
+      await register({
+        nombre: form.nombre,
+        apellido: form.apellido,
+        tipo_documento: form.tipoDocumento,
+        numero_documento: form.numeroDocumento,
+        direccion: form.direccion,
+        telefono: form.telefono,
+        correo: form.correo,
+        password: form.password
+      });
+
       onClose();
       setForm(initialForm);
+      navigate('/dashboard/cliente');
+    } catch (error) {
+      if (error.errors) {
+        // Errores de validación del backend
+        const backendErrors = {};
+        error.errors.forEach((err) => {
+          // Mapear campos del backend a nombres del frontend
+          const fieldMap = {
+            tipo_documento: 'tipoDocumento',
+            numero_documento: 'numeroDocumento'
+          };
+          const field = fieldMap[err.path] || err.path;
+          backendErrors[field] = err.msg;
+        });
+        setErrors((prev) => ({ ...prev, ...backendErrors }));
+      } else {
+        setApiError(error.error || 'Error al crear la cuenta. Intenta de nuevo.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -82,13 +127,19 @@ export default function RegistroModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-[color:rgba(9,10,15,.72)] px-4 py-8 backdrop-blur-sm">
-      <div className="w-full max-w-3xl rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-[0_20px_60px_rgba(0,0,0,.45)] md:p-8">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-[0_20px_60px_rgba(0,0,0,.45)] md:p-8">
         <div className="mb-6 flex items-center justify-between">
           <h3 className="font-display text-2xl tracking-[0.1em] text-[var(--color-text)]">Crear Cuenta</h3>
           <Button variant="ghost" onClick={onClose}>
             Cerrar
           </Button>
         </div>
+
+        {apiError && (
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {apiError}
+          </div>
+        )}
 
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit} noValidate>
           <Input id="nombre" name="nombre" label="Nombre" value={form.nombre} onChange={handleChange} error={errors.nombre} />
@@ -143,7 +194,16 @@ export default function RegistroModal({ isOpen, onClose }) {
             <Button variant="secondary" onClick={onClose} type="button">
               Cancelar
             </Button>
-            <Button type="submit">Crear cuenta</Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-bg)] border-t-transparent" />
+                  Registrando...
+                </span>
+              ) : (
+                'Crear cuenta'
+              )}
+            </Button>
           </div>
         </form>
       </div>
