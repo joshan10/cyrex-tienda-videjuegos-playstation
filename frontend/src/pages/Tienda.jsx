@@ -3,21 +3,23 @@ import { useAuth } from '../context/AuthContext';
 import { productosAPI, ordenesAPI } from '../services/api';
 import LayoutPrincipal from '../components/layout/LayoutPrincipal';
 import Button from '../components/ui/Button';
+import { useToast } from '../components/ui/Toast';
 
 const API_URL = 'http://localhost:4000';
 
 export default function Tienda() {
   const { user } = useAuth();
+  const { addToast, ToastContainer } = useToast();
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [carrito, setCarrito] = useState([]);
+  const [carrito, setCarrito] = useState(() => {
+    const saved = localStorage.getItem('cyrex_carrito');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [compraExitosa, setCompraExitosa] = useState(false);
-
-  useEffect(() => {
-    loadProducts();
-  }, []);
+  const [ultimaOrden, setUltimaOrden] = useState(null);
 
   const loadProducts = async () => {
     try {
@@ -30,6 +32,12 @@ export default function Tienda() {
       setLoading(false);
     }
   };
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    loadProducts();
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const getProductImage = (url) => {
     if (!url) return '';
@@ -44,58 +52,125 @@ export default function Tienda() {
     setCarrito(prev => {
       const existe = prev.find(item => item.id === producto.id);
       if (existe) {
-        if (existe.cantidad >= producto.stock) return prev; // No exceder stock
-        return prev.map(item => item.id === producto.id ? { ...item, cantidad: item.cantidad + 1 } : item);
+        if (existe.cantidad >= producto.stock) {
+          addToast('No hay más stock disponible', 'error');
+          return prev;
+        }
+        addToast(`${producto.nombre} agregado al carrito`, 'success');
+        const nuevoCarrito = prev.map(item => item.id === producto.id ? { ...item, cantidad: item.cantidad + 1 } : item);
+        localStorage.setItem('cyrex_carrito', JSON.stringify(nuevoCarrito));
+        return nuevoCarrito;
       }
-      return [...prev, { ...producto, cantidad: 1 }];
+      addToast(`${producto.nombre} agregado al carrito`, 'success');
+      const nuevoCarrito = [...prev, { ...producto, cantidad: 1 }];
+      localStorage.setItem('cyrex_carrito', JSON.stringify(nuevoCarrito));
+      return nuevoCarrito;
     });
   };
 
   const quitarDelCarrito = (id) => {
-    setCarrito(prev => prev.filter(item => item.id !== id));
+    const nuevoCarrito = carrito.filter(item => item.id !== id);
+    setCarrito(nuevoCarrito);
+    localStorage.setItem('cyrex_carrito', JSON.stringify(nuevoCarrito));
   };
 
   const actualizarCantidad = (id, cantidad) => {
     if (cantidad <= 0) return quitarDelCarrito(id);
-    setCarrito(prev => prev.map(item => {
+    const nuevoCarrito = carrito.map(item => {
       if (item.id === id) {
-        const prodDb = productos.find(p => p.id === id);
-        const cantFinal = Math.min(cantidad, prodDb.stock);
-        return { ...item, cantidad: cantFinal };
+        if (cantidad > item.stock) {
+          addToast('No hay suficiente stock', 'error');
+          return item;
+        }
+        return { ...item, cantidad };
       }
       return item;
-    }));
+    });
+    setCarrito(nuevoCarrito);
+    localStorage.setItem('cyrex_carrito', JSON.stringify(nuevoCarrito));
   };
 
   const totalCarrito = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
   const cantidadItems = carrito.reduce((sum, item) => sum + item.cantidad, 0);
 
   const procesarCompra = async () => {
-    if (carrito.length === 0) return;
+    if (carrito.length === 0) {
+      addToast('El carrito está vacío', 'error');
+      return;
+    }
+    
+    if (!user) {
+      addToast('Debes iniciar sesión para comprar', 'error');
+      return;
+    }
+    
     setProcesando(true);
+    
     try {
       const payload = {
         direccion_envio: user?.direccion || 'Dirección por defecto',
         notas: 'Compra desde tienda web',
-        detalles: carrito.map(item => ({
+        items: carrito.map(item => ({
           producto_id: item.id,
           cantidad: item.cantidad,
           precio_unitario: item.precio
         }))
       };
 
-      await ordenesAPI.create(payload);
+      console.log('Enviando orden:', payload);
+      const response = await ordenesAPI.create(payload);
+      console.log('Respuesta orden:', response);
+      
+      setUltimaOrden(response.orden);
       setCarrito([]);
+      localStorage.removeItem('cyrex_carrito');
       setCompraExitosa(true);
-      loadProducts(); // Actualizar stock
-      setTimeout(() => setCompraExitosa(false), 5000);
+      addToast('¡Felicidades por tu compra!', 'success');
+      loadProducts();
+      setTimeout(() => setCompraExitosa(false), 10000);
       setIsCartOpen(false);
     } catch (err) {
       console.error('Error al procesar la compra:', err);
-      alert('Hubo un error al procesar tu compra. Por favor intenta de nuevo.');
+      console.error('Error completo:', JSON.stringify(err, null, 2));
+      const errorMsg = err.error || err.message || JSON.stringify(err) || 'Error desconocido';
+      addToast(`Error: ${errorMsg}`, 'error');
     } finally {
       setProcesando(false);
     }
+  };
+
+  const handleDownloadInvoice = () => {
+    if (!ultimaOrden) return;
+    
+    const invoiceContent = `
+CYREX - FACTURA ELECTRÓNICA
+================================
+Factura #: ${ultimaOrden.id}
+Fecha: ${new Date(ultimaOrden.created_at).toLocaleDateString('es-CO')}
+Cliente: ${user?.nombre} ${user?.apellido}
+Correo: ${user?.correo}
+Dirección: ${user?.direccion || 'N/A'}
+Teléfono: ${user?.telefono || 'N/A'}
+
+DETALLE DE LA COMPRA
+================================
+${carrito.map(item => `- ${item.nombre} x${item.cantidad}: $${item.precio * item.cantidad}`).join('\n')}
+
+TOTAL: $${carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0)}
+Estado: ${ultimaOrden.estado}
+
+¡Felicidades por tu compra en Cyrex Store!
+    `.trim();
+
+    const blob = new Blob([invoiceContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `factura_cyrex_${ultimaOrden.id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -110,6 +185,7 @@ export default function Tienda() {
 
   return (
     <LayoutPrincipal>
+      <ToastContainer />
       <div className="relative mx-auto w-full max-w-6xl px-6 py-10">
         
         {/* Header Tienda */}
@@ -135,9 +211,15 @@ export default function Tienda() {
         </div>
 
         {compraExitosa && (
-          <div className="mb-8 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-4 text-emerald-400 flex items-center justify-between">
-            <p><strong>¡Compra exitosa!</strong> Tu orden ha sido registrada correctamente. Puedes verla en tu panel.</p>
-            <button onClick={() => setCompraExitosa(false)} className="text-emerald-400 hover:text-emerald-300">×</button>
+          <div className="mb-8 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-4 text-emerald-400">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-lg font-semibold">🎉 ¡Felicidades por tu compra!</p>
+              <button onClick={() => setCompraExitosa(false)} className="text-emerald-400 hover:text-emerald-300 text-2xl">×</button>
+            </div>
+            <p className="mb-4">Tu orden ha sido registrada correctamente. Puedes verla en tu panel o descargar tu factura ahora.</p>
+            <Button onClick={handleDownloadInvoice} className="!bg-emerald-500/20 !text-emerald-400 !border-emerald-500/30 hover:!bg-emerald-500/30">
+              📄 Descargar Factura Electrónica
+            </Button>
           </div>
         )}
 

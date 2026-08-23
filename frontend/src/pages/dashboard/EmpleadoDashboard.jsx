@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { productosAPI, ordenesAPI } from '../../services/api';
+import { productosAPI, ordenesAPI, usuariosAPI } from '../../services/api';
 import LayoutPrincipal from '../../components/layout/LayoutPrincipal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 
 const tabs = [
+  { id: 'perfil', label: 'Mi Perfil' },
   { id: 'productos', label: 'Productos' },
   { id: 'ventas',    label: 'Órdenes' }
 ];
@@ -22,9 +23,14 @@ export default function EmpleadoDashboard() {
   const [productForm, setProductForm] = useState({ stock: '', estado: 'activo' });
   const [showProductModal, setShowProductModal] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Estado para edición de perfil
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    nombre: '',
+    apellido: '',
+    direccion: '',
+    telefono: ''
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -39,6 +45,35 @@ export default function EmpleadoDashboard() {
       console.error('Error cargando datos:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    loadData();
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const handleEditProfile = () => {
+    setProfileForm({
+      nombre: user?.nombre || '',
+      apellido: user?.apellido || '',
+      direccion: user?.direccion || '',
+      telefono: user?.telefono || ''
+    });
+    setEditingProfile(true);
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      await usuariosAPI.update(user.id, profileForm);
+      setEditingProfile(false);
+      alert('Perfil actualizado exitosamente');
+      // Recargar datos del usuario
+      window.location.reload();
+    } catch (err) {
+      console.error('Error actualizando perfil:', err);
+      alert('Error al actualizar el perfil');
     }
   };
 
@@ -123,6 +158,48 @@ export default function EmpleadoDashboard() {
             </button>
           ))}
         </div>
+
+        {activeTab === 'perfil' && (
+          <div className="max-w-2xl rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-display text-xl text-[var(--color-text)]">Datos Personales</h3>
+              {!editingProfile && (
+                <Button variant="secondary" onClick={handleEditProfile}>Editar</Button>
+              )}
+            </div>
+            {editingProfile ? (
+              <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }} className="space-y-4">
+                <Input label="Nombre" value={profileForm.nombre} onChange={(e) => setProfileForm(prev => ({ ...prev, nombre: e.target.value }))} />
+                <Input label="Apellido" value={profileForm.apellido} onChange={(e) => setProfileForm(prev => ({ ...prev, apellido: e.target.value }))} />
+                <Input label="Dirección" value={profileForm.direccion} onChange={(e) => setProfileForm(prev => ({ ...prev, direccion: e.target.value }))} />
+                <Input label="Teléfono" value={profileForm.telefono} onChange={(e) => setProfileForm(prev => ({ ...prev, telefono: e.target.value }))} />
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button variant="secondary" type="button" onClick={() => setEditingProfile(false)}>Cancelar</Button>
+                  <Button type="submit">Guardar</Button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid gap-1 border-b border-[var(--color-line)] pb-3">
+                  <span className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Nombre completo</span>
+                  <span className="text-sm font-medium text-[var(--color-text)]">{user?.nombre} {user?.apellido}</span>
+                </div>
+                <div className="grid gap-1 border-b border-[var(--color-line)] pb-3">
+                  <span className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Correo electrónico</span>
+                  <span className="text-sm font-medium text-[var(--color-text)]">{user?.correo}</span>
+                </div>
+                <div className="grid gap-1 border-b border-[var(--color-line)] pb-3">
+                  <span className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Dirección</span>
+                  <span className="text-sm font-medium text-[var(--color-text)]">{user?.direccion || 'No especificada'}</span>
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-xs uppercase tracking-widest text-[var(--color-muted)]">Teléfono</span>
+                  <span className="text-sm font-medium text-[var(--color-text)]">{user?.telefono || 'No especificado'}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {activeTab === 'productos' && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
