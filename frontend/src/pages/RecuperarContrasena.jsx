@@ -1,29 +1,50 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import LayoutPrincipal from '../components/layout/LayoutPrincipal';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import { authAPI } from '../services/api';
 
 const validateEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 export default function RecuperarContrasena() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
-  const [sent, setSent] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (event) => {
     const value = event.target.value;
     setEmail(value);
     setError(value && !validateEmail(value) ? 'Ingresa un correo valido.' : '');
+    setApiError('');
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     if (!validateEmail(email)) {
       setError('Ingresa un correo valido.');
       return;
     }
-    setSent(true);
+    
+    setIsLoading(true);
+    setApiError('');
+    
+    try {
+      const response = await authAPI.forgotPassword(email);
+      // En modo desarrollo, capturamos el token de la respuesta para probar el flujo sin correo real.
+      if (response.dev_token) {
+        navigate(`/restablecer-contrasena?token=${response.dev_token}`);
+      } else {
+        // En produccion se enviaria el correo
+        alert(response.message);
+      }
+    } catch (err) {
+      setApiError(err.error || 'Ocurrió un error al procesar la solicitud.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -46,10 +67,10 @@ export default function RecuperarContrasena() {
               type="email"
               placeholder="usuario@correo.com"
             />
-            <Button type="submit" className="mt-5 w-full">
-              Enviar
+            <Button type="submit" className="mt-5 w-full" disabled={isLoading || !!error}>
+              {isLoading ? 'Enviando...' : 'Enviar'}
             </Button>
-            {sent ? <p className="mt-3 text-sm text-emerald-400">Correo enviado correctamente.</p> : null}
+            {apiError && <p className="mt-3 text-sm text-red-500">{apiError}</p>}
           </form>
 
           <Link to="/iniciar-sesion" className="mt-4 inline-block text-sm text-[var(--color-accent)]">

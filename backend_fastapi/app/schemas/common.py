@@ -77,3 +77,10 @@ def public_dict(value: Any) -> dict[str, Any]:
         if hasattr(item, "quantize"):
             data[key] = float(item)
     return data
+
+class ForgotPassword(APIModel):
+    correo: EmailStr
+
+class ResetPassword(APIModel):
+    token: str
+    password: str = Field(min_length=8)

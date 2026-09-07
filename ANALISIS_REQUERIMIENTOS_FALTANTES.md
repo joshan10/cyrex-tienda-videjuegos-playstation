@@ -39,77 +39,23 @@
 
 ---
 
-### ⚠️ REQ-15 — Recuperación de Contraseña (INCOMPLETO)
+### ✅ REQ-15 — Recuperación de Contraseña (COMPLETADO)
 
-**Qué pide:** Implementación funcional de recuperación de contraseña olvidada para clientes y empleados.
+**Qué pedía:** Implementación funcional de recuperación de contraseña olvidada para clientes y empleados.
 
-**Qué existe:**
-El archivo `RecuperarContrasena.jsx` existe y tiene el formulario visual, pero **solo simula el envío** localmente:
+**Estado Actual:**
+- ✅ Se crearon los endpoints en FastAPI (`forgot-password` y `reset-password`).
+- ✅ Se configuró el envío de tokens directamente en la respuesta para pruebas (modo dev).
+- ✅ Se creó la tabla `password_reset_tokens` (script disponible en `database/migration_reset_token.sql`).
+- ✅ Se actualizó el frontend para llamar a la API real.
+- ✅ Se creó la página `RestablecerContrasena.jsx` para ingresar la nueva contraseña.
 
 ```jsx
 // RecuperarContrasena.jsx - handleSubmit
 setSent(true);  // ← Solo cambia estado local. No llama ningún endpoint.
 ```
 
-**No existe:**
-- ❌ Ningún endpoint en FastAPI para recuperación de contraseña (ni en `auth.py`, ni en ningún router).
-- ❌ No hay lógica de tokens de recuperación en el backend.
-- ❌ No hay envío real de correo.
 
-**Cómo implementarlo:**
-
-#### Backend (FastAPI)
-1. Instalar dependencia de envío de correo: `pip install fastapi-mail` y añadirla a `requirements.txt`.
-2. En `app/core/config.py`, agregar variables de entorno para el servidor SMTP:
-   ```python
-   mail_username: str = ""
-   mail_password: str = ""
-   mail_from: str = ""
-   mail_server: str = "smtp.gmail.com"
-   mail_port: int = 587
-   ```
-3. En `.env.example`, documentar esas nuevas variables.
-4. Crear tabla en la base de datos para guardar tokens de recuperación:
-   ```sql
-   CREATE TABLE password_reset_tokens (
-     id INT PRIMARY KEY AUTO_INCREMENT,
-     usuario_id INT NOT NULL,
-     token VARCHAR(255) UNIQUE NOT NULL,
-     expires_at DATETIME NOT NULL,
-     used TINYINT(1) DEFAULT 0,
-     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
-   );
-   ```
-5. En `app/models/entities.py`, crear el modelo `PasswordResetToken`:
-   ```python
-   class PasswordResetToken(Base):
-       __tablename__ = "password_reset_tokens"
-       id: Mapped[int] = mapped_column(primary_key=True)
-       usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
-       token: Mapped[str] = mapped_column(String(255), unique=True)
-       expires_at: Mapped[datetime] = mapped_column(DateTime)
-       used: Mapped[bool] = mapped_column(default=False)
-       created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-   ```
-6. En `app/routers/auth.py`, agregar dos nuevos endpoints:
-   - `POST /api/auth/forgot-password` — Recibe el correo, genera un token UUID (válido por 1 hora), lo guarda en la tabla y envía el correo con el enlace de restablecimiento.
-   - `POST /api/auth/reset-password` — Recibe el token y la nueva contraseña, valida que el token no haya expirado ni sido usado, actualiza la contraseña con `hash_password()` y marca el token como usado.
-
-#### Frontend (React)
-7. En `src/services/api.js`, añadir dos funciones al objeto `authAPI`:
-   ```js
-   forgotPassword: (correo) =>
-     request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ correo }) }),
-   resetPassword: (token, password) =>
-     request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
-   ```
-8. Conectar `RecuperarContrasena.jsx` para que llame a `authAPI.forgotPassword(email)` en `handleSubmit` en lugar de solo hacer `setSent(true)`.
-9. Crear una nueva página `RestablecerContrasena.jsx` que reciba el token como query param (`?token=...`) y permita ingresar y confirmar la nueva contraseña, llamando a `authAPI.resetPassword(token, nuevaPassword)`.
-10. Registrar esa nueva ruta en `App.jsx`:
-    ```jsx
-    <Route path="/restablecer-contrasena" element={<RestablecerContrasena />} />
-    ```
 
 ---
 
@@ -220,21 +166,20 @@ setSent(true);  // ← Solo cambia estado local. No llama ningún endpoint.
 |-----------|-----------|-------------|--------------------------|
 | Arquitectura y Configuración | 3 | 3 | 0 |
 | Base de Datos y Modelos | 3 | 3 | 0 |
-| Autenticación y Seguridad | 4 | 3 | **1 — REQ-15** |
+| Autenticación y Seguridad | 4 | 4 | 0 |
 | Endpoints y CRUD | 4 | 4 | 0 |
 | Frontend y Paneles | 7 | 7 | 0 |
 | Validaciones | 1 | 0 | **1 — REQ-21** |
 | Pruebas y Documentación | 2 | 1 | **1 — REQ-26** |
-| **TOTAL** | **26** | **23** | **3** |
+| **TOTAL** | **26** | **24** | **2** |
 
 ---
 
 ## 🔑 Orden de Prioridad para Completar
 
 1. **REQ-21 (Validaciones tiempo real en `RegistroModal.jsx`)** — Es el más rápido de implementar. Solo hay que añadir los validadores en el `onChange` y pasar los errores al componente `Input`.
-2. **REQ-15 (Recuperación de contraseña)** — Requiere más trabajo: crear endpoints en FastAPI, configurar correo SMTP y conectar el frontend. Sin embargo, el formulario ya existe.
-3. **REQ-26 (Pruebas Postman/Pytest)** — Es evidencia de funcionamiento. La opción más rápida es exportar una colección de Postman con los endpoints ya creados y funcionales.
+2. **REQ-26 (Pruebas Postman/Pytest)** — Es evidencia de funcionamiento. La opción más rápida es exportar una colección de Postman con los endpoints ya creados y funcionales.
 
 ---
 
-> **Conclusión:** El proyecto está **muy bien implementado en general** (23 de 26 requerimientos completos). La arquitectura FastAPI es correcta, los modelos SQLAlchemy y esquemas Pydantic están bien separados, la autenticación JWT funciona, el control de roles opera tanto en frontend como en backend, y todos los CRUD están operativos con soft-delete. Solo faltan 3 puntos para cumplir al 100% los requerimientos.
+> **Conclusión:** El proyecto está **casi listo** (24 de 26 requerimientos completos). La arquitectura FastAPI es correcta, los modelos SQLAlchemy y esquemas Pydantic están bien separados, la autenticación JWT funciona, el control de roles opera tanto en frontend como en backend, todos los CRUD están operativos con soft-delete y el restablecimiento de contraseñas ya está implementado. Solo faltan 2 puntos para cumplir al 100% los requerimientos.

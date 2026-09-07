@@ -8,6 +8,7 @@ import Index from './pages/Index';
 import IniciarSesion from './pages/IniciarSesion';
 import QuienesSomos from './pages/QuienesSomos';
 import RecoverPassword from './pages/RecoverPassword';
+import RestablecerContrasena from './pages/RestablecerContrasena';
 
 // Dashboards
 import AdminDashboard from './pages/dashboard/AdminDashboard';
@@ -23,6 +24,7 @@ function App() {
         <Route path="/iniciar-sesion" element={<IniciarSesion />} />
         <Route path="/recuperar-contrasena" element={<RecoverPassword />} />
         <Route path="/recover-password" element={<RecoverPassword />} />
+        <Route path="/restablecer-contrasena" element={<RestablecerContrasena />} />
         <Route path="/quienes-somos" element={<QuienesSomos />} />
         <Route path="/contacto" element={<Contacto />} />
 
