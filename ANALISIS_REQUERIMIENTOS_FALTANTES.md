@@ -43,17 +43,136 @@
 
 **Qué pedía:** Implementación funcional de recuperación de contraseña olvidada para clientes y empleados.
 
-**Estado Actual:**
-- ✅ Se crearon los endpoints en FastAPI (`forgot-password` y `reset-password`).
-- ✅ Se configuró el envío de tokens directamente en la respuesta para pruebas (modo dev).
-- ✅ Se creó la tabla `password_reset_tokens` (script disponible en `database/migration_reset_token.sql`).
-- ✅ Se actualizó el frontend para llamar a la API real.
-- ✅ Se creó la página `RestablecerContrasena.jsx` para ingresar la nueva contraseña.
+**Archivos modificados/creados:**
 
-```jsx
-// RecuperarContrasena.jsx - handleSubmit
-setSent(true);  // ← Solo cambia estado local. No llama ningún endpoint.
+| Archivo | Acción |
+|---------|--------|
+| `backend_fastapi/app/routers/auth.py` | Se agregaron los endpoints `forgot-password` y `reset-password` |
+| `frontend/src/services/api.js` | Se agregaron los métodos `forgotPassword()` y `resetPassword()` a `authAPI` |
+| `backend_fastapi/database/migration_reset_token.sql` | Script SQL para crear la tabla `password_reset_tokens` |
+| `frontend/src/pages/RecuperarContrasena.jsx` | Página existente que ya llamaba a la API (ahora conectada) |
+| `frontend/src/pages/RestablecerContrasena.jsx` | Página existente que ya llamaba a la API (ahora conectada) |
+
+---
+
+**Flujo completo paso a paso:**
+
 ```
+1. USUARIO hace clic en "Olvidé mi contraseña" (IniciarSesion.jsx)
+       │
+       ▼
+2. NAVEGA a /recuperar-contrasena → Renderiza RecuperarContrasena.jsx
+       │
+       ▼
+3. INGRESA su correo y hace clic en "Enviar"
+       │
+       ▼
+4. FRONTEND llama: authAPI.forgotPassword(correo)
+   → fetch POST /api/auth/forgot-password  { "correo": "usuario@email.com" }
+       │
+       ▼
+5. BACKEND (forgot-password):
+   a) Busca el usuario en la tabla "usuarios" por correo
+   b) Si NO existe → retorna mensaje genérico (por seguridad, no revela si el correo existe)
+   c) Si SÍ existe:
+      - Genera un token aleatorio con secrets.token_urlsafe(32)
+      - Guarda el token en "password_reset_tokens" con expiración de 1 hora
+      - Retorna { "message": "...", "dev_token": "abc123..." }
+       │
+       ▼
+6. FRONTEND recibe la respuesta:
+   a) Si existe dev_token (modo desarrollo) → navega a /restablecer-contrasena?token=abc123
+   b) Si NO existe dev_token (producción) → muestra mensaje "Se enviaron instrucciones"
+       │
+       ▼
+7. NAVEGA a /restablecer-contrasena?token=abc123 → Renderiza RestablecerContrasena.jsx
+       │
+       ▼
+8. INGRESA nueva contraseña + confirmación (mínimo 8 caracteres, deben coincidir)
+       │
+       ▼
+9. FRONTEND llama: authAPI.resetPassword(token, password)
+   → fetch POST /api/auth/reset-password  { "token": "abc123...", "password": "nueva1234" }
+       │
+       ▼
+10. BACKEND (reset-password):
+    a) Busca el token en "password_reset_tokens" (debe existir y no estar usado)
+    b) Verifica que no haya expirado (1 hora de vigencia)
+    c) Busca el usuario dueño del token
+    d) Hashea la nueva contraseña con bcrypt
+    e) Actualiza la contraseña del usuario en la tabla "usuarios"
+    f) Marca el token como usado (used=True) para que no se reutilice
+    g) Retorna { "message": "Contraseña actualizada exitosamente." }
+       │
+       ▼
+11. FRONTEND muestra mensaje de éxito y redirige al login después de 3 segundos
+```
+
+---
+
+**Qué hace cada endpoint:**
+
+```python
+# POST /api/auth/forgot-password
+# Entrada: { "correo": "email@ejemplo.com" }
+# Respuesta: { "message": "...", "dev_token": "token_generado" }
+# Lógica: Busca usuario → genera token → guarda en BD → retorna token (dev)
+@router.post("/forgot-password")
+def forgot_password(data: ForgotPassword, db):
+    user = find_user(db, data.correo)
+    if not user:
+        return {"message": "Si el correo existe, se han enviado instrucciones..."}
+    token = secrets.token_urlsafe(32)
+    reset_token = PasswordResetToken(usuario_id=user.id, token=token,
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1))
+    db.add(reset_token)
+    db.commit()
+    return {"message": "...", "dev_token": token}
+
+
+# POST /api/auth/reset-password
+# Entrada: { "token": "abc123", "password": "nueva1234" }
+# Respuesta: { "message": "Contraseña actualizada exitosamente." }
+# Lógica: Valida token → verifica expiración → hashea contraseña → actualiza usuario
+@router.post("/reset-password")
+def reset_password(data: ResetPassword, db):
+    reset_entry = db.scalar(select(PasswordResetToken).where(
+        PasswordResetToken.token == data.token, PasswordResetToken.used == False))
+    if not reset_entry:
+        raise HTTPException(400, "Token inválido o ya utilizado.")
+    if reset_entry.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(400, "El token ha expirado.")
+    user = db.get(Usuario, reset_entry.usuario_id)
+    user.password = hash_password(data.password)
+    reset_entry.used = True
+    db.commit()
+    return {"message": "Contraseña actualizada exitosamente."}
+```
+
+---
+
+**Modelo de la tabla `password_reset_tokens`:**
+
+```sql
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  usuario_id INT NOT NULL,          -- FK → usuarios.id
+  token VARCHAR(255) UNIQUE NOT NULL, -- Token aleatorio único
+  expires_at DATETIME NOT NULL,     -- Expira en 1 hora
+  used TINYINT(1) DEFAULT 0,        -- 0=disponible, 1=ya usado
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+);
+```
+
+---
+
+**Seguridad implementada:**
+- Si el correo no existe, el endpoint retorna el mismo mensaje genérico (no revela si el usuario existe)
+- Los tokens expiran en 1 hora
+- Cada token solo puede usarse una vez (campo `used`)
+- Las contraseñas se hasheán con bcrypt antes de guardarse
+- En modo dev el token se retorna en la respuesta; en producción se enviaría por correo
 
 
 

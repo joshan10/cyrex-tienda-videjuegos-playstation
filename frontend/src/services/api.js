@@ -63,6 +63,8 @@ export const authAPI = {
       body: JSON.stringify(userData)
     }),
 
+  getProfile: () => request('/auth/me'),
+
   forgotPassword: (correo) =>
     request('/auth/forgot-password', {
       method: 'POST',
@@ -73,9 +75,7 @@ export const authAPI = {
     request('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify({ token, password })
-    }),
-
-  getProfile: () => request('/auth/me')
+    })
 };
 
 // =====================================================
