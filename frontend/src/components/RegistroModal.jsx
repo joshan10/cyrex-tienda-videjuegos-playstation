@@ -39,8 +39,14 @@ export default function RegistroModal({ isOpen, onClose }) {
 
   const validators = useMemo(
     () => ({
-      nombre: (value) => (!value.trim() ? 'El nombre es obligatorio.' : ''),
-      apellido: (value) => (!value.trim() ? 'El apellido es obligatorio.' : ''),
+      nombre: (value) =>
+        value.trim().length < 2 || value.trim().length > 100
+          ? 'El nombre debe tener entre 2 y 100 caracteres.'
+          : '',
+      apellido: (value) =>
+        value.trim().length < 2 || value.trim().length > 100
+          ? 'El apellido debe tener entre 2 y 100 caracteres.'
+          : '',
       tipoDocumento: (value) => (!value ? 'Selecciona un tipo de documento.' : ''),
       numeroDocumento: (value) => (!/^\d{6,15}$/.test(value) ? 'Ingresa un numero de documento valido.' : ''),
       direccion: (value) => (value.trim().length < 6 ? 'La direccion debe tener al menos 6 caracteres.' : ''),
@@ -58,7 +64,7 @@ export default function RegistroModal({ isOpen, onClose }) {
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: validators[name](value) }));
+    setErrors((prev) => ({ ...prev, [name]: validators[name]?.(value) || '' }));
     setApiError('');
 
     if (name === 'password') {
@@ -194,7 +200,7 @@ export default function RegistroModal({ isOpen, onClose }) {
             <Button variant="secondary" onClick={onClose} type="button">
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || Object.values(errors).some(Boolean)}>
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-bg)] border-t-transparent" />
