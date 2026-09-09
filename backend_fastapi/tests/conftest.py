@@ -1,22 +1,22 @@
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
 from app.core.database import Base, get_db
-import os
+from app.core.security import hash_password
+from app.main import app
+from app.models.entities import Usuario
+from app.models.roles import Rol
 
-# Set test environment variables
-os.environ["JWT_SECRET"] = "testsecret"
-os.environ["DB_NAME"] = "test_db"
-os.environ["DB_PASSWORD"] = "test"
 
-# Setup SQLite in-memory for testing
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-Base.metadata.create_all(bind=engine)
+engine = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = sessionmaker(autoflush=False, bind=engine)
 
 def override_get_db():
     try:
@@ -28,13 +28,68 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture
-def client():
-    return TestClient(app)
+def db():
+    Base.metadata.create_all(bind=engine)
+    session = TestingSessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture
-def db():
-    db = TestingSessionLocal()
-    try:
+def client(db):
+    def override_get_db():
         yield db
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield TestClient(app)
     finally:
-        db.close()
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture
+def admin_user(db):
+    db.add(Rol(id=1, nombre="Administrador"))
+    user = Usuario(
+        nombre="Admin",
+        apellido="Test",
+        tipo_documento="cc",
+        numero_documento="100000001",
+        direccion="Calle Admin 123",
+        telefono="3000000001",
+        correo="admin@test.com",
+        password=hash_password("Admin1234!"),
+        rol_id=1,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@pytest.fixture
+def customer_user(db):
+    db.add(Rol(id=3, nombre="Cliente"))
+    user = Usuario(
+        nombre="Cliente",
+        apellido="Test",
+        tipo_documento="cc",
+        numero_documento="100000002",
+        direccion="Calle Cliente 456",
+        telefono="3000000002",
+        correo="cliente@test.com",
+        password=hash_password("Cliente1234!"),
+        rol_id=3,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def login_headers(client, email, password):
+    response = client.post("/api/auth/login", json={"correo": email, "password": password})
+    assert response.status_code == 200
+    return {"Authorization": f"Bearer {response.json()['token']}"}
