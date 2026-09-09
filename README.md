@@ -229,6 +229,16 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### 3. Iniciar FastAPI
+
+Desde la raiz del proyecto:
+
+```bash
+backend_fastapi/.venv/bin/uvicorn app.main:app --app-dir backend_fastapi --host 0.0.0.0 --port 4000 --reload
+```
+
+La API queda disponible en `http://localhost:4000` y la documentacion Swagger en `http://localhost:4000/docs`.
+
 ### 3. Configurar Base de Datos
 
 ```bash
