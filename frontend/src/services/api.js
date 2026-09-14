@@ -23,6 +23,8 @@ async function request(endpoint, options = {}) {
     throw { status: response.status, ...errorData };
   }
 
+  if (response.status === 204) return null;
+
   const data = await response.json();
   return data;
 }
