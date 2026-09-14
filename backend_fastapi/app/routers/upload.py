@@ -5,13 +5,23 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.dependencies import require_roles
 
-router = APIRouter(prefix="/upload", tags=["upload"])
+router = APIRouter(prefix="/archivos", tags=["archivos"])
 UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
 ALLOWED = {"jpeg", "jpg", "png", "webp", "gif"}
 
 
-@router.post("")
-async def upload_image(_: dict = Depends(require_roles("Administrador")), imagen: UploadFile = File(...)):
+@router.post(
+    "",
+    summary="Subir imagen al servidor",
+    responses={
+        400: {"description": "Formato no permitido"},
+        413: {"description": "Archivo demasiado grande"},
+    },
+)
+async def upload_image(
+    _: dict = Depends(require_roles("Administrador")),
+    imagen: UploadFile = File(...),
+):
     extension = Path(imagen.filename or "").suffix.lower().lstrip(".")
     if extension not in ALLOWED or not (imagen.content_type or "").lower().endswith(extension):
         raise HTTPException(400, "Error: Solo se permiten imágenes (jpeg, jpg, png, webp, gif)")

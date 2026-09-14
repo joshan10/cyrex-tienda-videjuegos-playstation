@@ -107,8 +107,10 @@ proyecto/
 │
 ├── 📂 backend_fastapi/
 │   ├── 📂 app/
-│   │   ├── 📄 main.py              # Entry point FastAPI
-│   │   ├── 📄 dependencies.py      # Dependencias JWT
+│   │   ├── 📄 main.py              # Entry point, middleware, handlers
+│   │   ├── 📄 dependencies.py      # JWT + dependencias reutilizables
+│   │   ├── 📄 exceptions.py        # Jerarquía de excepciones propias
+│   │   ├── 📄 pagination.py        # Dependencia de paginación
 │   │   ├── 📂 core/
 │   │   │   ├── 📄 config.py        # Variables de entorno (pydantic-settings)
 │   │   │   ├── 📄 database.py      # Conexión SQLAlchemy
@@ -117,25 +119,31 @@ proyecto/
 │   │   │   ├── 📄 entities.py      # Modelos SQLAlchemy
 │   │   │   └── 📄 roles.py         # Modelo Roles/Permisos
 │   │   ├── 📂 schemas/
-│   │   │   ├── 📄 common.py        # Esquemas Pydantic (validación)
+│   │   │   ├── 📄 common.py        # Esquemas de entrada (validación)
+│   │   │   ├── 📄 response.py      # Esquemas de respuesta tipados
 │   │   │   └── 📄 resources.py     # Esquemas categorías/servicios
 │   │   ├── 📂 crud/
-│   │   │   └── 📄 resources.py     # Funciones CRUD auxiliares
+│   │   │   └── 📄 resources.py     # Capa de acceso a datos
 │   │   └── 📂 routers/
 │   │       ├── 📄 auth.py          # Auth + Registro + Login + Reset
 │   │       ├── 📄 usuarios.py      # CRUD Usuarios
 │   │       ├── 📄 productos.py     # CRUD Productos
 │   │       ├── 📄 catalogo.py      # Categorías + Servicios
 │   │       ├── 📄 ordenes.py       # Órdenes de compra
-│   │       └── 📄 upload.py        # Subida de imágenes
+│   │       └── 📄 upload.py        # Subida de imágenes (/api/archivos)
 │   ├── 📂 database/
 │   │   ├── 📄 cyrex_db.sql         # Script creación BD
 │   │   ├── 📄 seed_usuarios.sql    # Datos iniciales
 │   │   └── 📄 migration_reset_token.sql
 │   ├── 📂 tests/
-│   │   ├── 📄 conftest.py          # Fixtures de testing
-│   │   └── 📄 test_auth.py         # Pruebas de autenticación
+│   │   ├── 📄 conftest.py          # Fixtures SQLite en memoria
+│   │   ├── 📄 test_auth.py         # 8 pruebas de autenticación
+│   │   ├── 📄 test_productos.py    # 4 pruebas de productos
+│   │   ├── 📄 test_usuarios.py     # 4 pruebas de usuarios
+│   │   └── 📄 test_ordenes.py      # 5 pruebas de órdenes
 │   ├── 📂 uploads/                 # Imágenes subidas
+│   ├── 📂 docs/
+│   │   └── 📄 DISENO_ENDPOINTS.md  # Tabla de diseño de endpoints
 │   ├── 📄 .env                     # Variables de entorno
 │   ├── 📄 .env.example             # Plantilla de variables
 │   └── 📄 requirements.txt         # Dependencias Python
@@ -186,6 +194,8 @@ proyecto/
 │   └── ... (26 requerimientos)
 │
 ├── 📄 Requerimientos_Proyecto_jhan.md
+├── 📄 EVALUACION_LISTA_CHEQUEO.md  # Lista de chequeo de evaluación
+├── 📄 MAPEO_REQUISITOS.md          # Mapeo de requisitos a código
 ├── 📄 DOCUMENTACION.md
 └── 📄 README.md                     # Este archivo
 ```
@@ -321,8 +331,8 @@ El frontend estará disponible en: `http://localhost:5173`
 ### Swagger UI
 
 La documentación interactiva de la API está disponible en:
-- **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
+- **Swagger UI**: `http://localhost:4000/docs`
+- **ReDoc**: `http://localhost:4000/redoc`
 
 ---
 
@@ -364,6 +374,9 @@ La documentación interactiva de la API está disponible en:
 |--------|------|-------------|------|
 | `GET` | `/api/categorias` | Listar categorías | ❌ |
 | `GET` | `/api/categorias/:id` | Obtener por ID | ❌ |
+| `POST` | `/api/categorias` | Crear categoría | Admin |
+| `PUT` | `/api/categorias/:id` | Actualizar categoría | Admin |
+| `DELETE` | `/api/categorias/:id` | Desactivar categoría | Admin |
 
 ### Servicios (`/api/servicios`)
 
@@ -371,6 +384,9 @@ La documentación interactiva de la API está disponible en:
 |--------|------|-------------|------|
 | `GET` | `/api/servicios` | Listar servicios | ❌ |
 | `GET` | `/api/servicios/:id` | Obtener por ID | ❌ |
+| `POST` | `/api/servicios` | Crear servicio | Admin |
+| `PUT` | `/api/servicios/:id` | Actualizar servicio | Admin |
+| `DELETE` | `/api/servicios/:id` | Desactivar servicio | Admin |
 
 ### Órdenes (`/api/ordenes`)
 
@@ -382,11 +398,11 @@ La documentación interactiva de la API está disponible en:
 | `PATCH` | `/api/ordenes/:id/estado` | Actualizar estado | Admin/Empleado |
 | `GET` | `/api/ordenes/stats/ventas` | Estadísticas | Admin |
 
-### Upload (`/api/upload`)
+### Archivos (`/api/archivos`)
 
 | Método | Ruta | Descripción | Auth |
 |--------|------|-------------|------|
-| `POST` | `/api/upload` | Subir imagen | ✅ |
+| `POST` | `/api/archivos` | Subir imagen | Admin |
 
 ---
 
@@ -442,13 +458,19 @@ def get_all(user: dict = Depends(require_roles("Administrador"))):
 - **Autenticación completa**: Registro, login, JWT, recuperación de contraseña
 - **Sistema de roles**: Administrador, Empleado, Cliente con permisos diferenciados
 - **CRUD completo**: Usuarios, Productos, Categorías, Servicios, Órdenes
-- **Validación en tiempo real**: Frontend y Backend con Pydantic
-- **Seguridad**: Contraseñas con hash bcrypt, variables de entorno
+- **Validación en tiempo real**: Frontend y Backend con Pydantic v2
+- **Seguridad**: Contraseñas con hash bcrypt, variables de entorno, cabeceras de seguridad
 - **Paneles de administración**: Dashboards diferenciados por rol
 - **Subida de imágenes**: Gestión de archivos estáticos
+- **Paginación reutilizable**: Dependencia `Paginacion` con page/size en todos los listados
+- **Excepciones propias del dominio**: Jerarquía `CyrexException` con `RecursoNoEncontrado`, `ConflictoNegocio`, `StockInsuficiente`, etc.
+- **Formato uniforme de errores**: Todos los handlers devuelven `{"ok": false, "error": {"code", "message"}}`
+- **Middleware de logging y seguridad**: Registro de requests + cabeceras `X-Content-Type-Options`, `X-Frame-Options`, `HSTS`
+- **Tareas en segundo plano**: `BackgroundTasks` para envío de emails de recuperación
+- **IntegrityError handling**: Captura de duplicados con rollback y respuesta 409
 - **Diseño responsive**: Tailwind CSS para todos los dispositivos
 - **Botón WhatsApp**: Componente flotante reutilizable
-- **Documentación Swagger**: API documentada interactivamente
+- **Documentación Swagger**: API documentada interactivamente con tags, summary y responses
 
 ### 📊 Modelos de Base de Datos
 
@@ -472,8 +494,14 @@ def get_all(user: dict = Depends(require_roles("Administrador"))):
 
 ```bash
 cd backend_fastapi
-pytest tests/ -v
+.venv/bin/pytest tests/ -v
 ```
+
+**21 pruebas** en 4 archivos:
+- `test_auth.py` — 8 tests (login, registro duplicado, token inválido, forgot/reset password)
+- `test_productos.py` — 4 tests (CRUD, no encontrado, rol incorrecto, filtros)
+- `test_usuarios.py` — 4 tests (CRUD, no encontrado, duplicado, rol incorrecto)
+- `test_ordenes.py` — 5 tests (CRUD, no encontrada, stock insuficiente, estado inválido, acceso denegado)
 
 ### Construir frontend para producción
 

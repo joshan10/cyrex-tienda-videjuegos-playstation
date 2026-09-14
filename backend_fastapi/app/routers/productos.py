@@ -1,18 +1,36 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.crud.resources import product_view
-from app.dependencies import require_roles
+from app.crud.resources import get_products_with_filters, count_products_with_filters, product_view
+from app.dependencies import get_producto_by_id, require_roles
+from app.exceptions import ConflictoNegocio
 from app.models.entities import Producto
+from app.pagination import Paginacion, get_paginacion, paginate_query
 from app.schemas.common import ProductoEntrada, ProductoUpdate
 
-router = APIRouter(prefix="/productos", tags=["productos"])
+router = APIRouter(
+    prefix="/productos",
+    tags=["productos"],
+)
 
 
-@router.get("")
-def get_all(estado: str | None = None, categoria_id: int | None = None, plataforma: str | None = None, search: str | None = None, db: Session = Depends(get_db)):
+@router.get(
+    "",
+    summary="Listar productos con filtros y paginación",
+    responses={200: {"description": "Lista paginada de productos"}, 401: {"description": "No autenticado"}, 403: {"description": "Acceso denegado"}},
+)
+def get_all(
+    estado: str | None = None,
+    categoria_id: int | None = None,
+    plataforma: str | None = None,
+    search: str | None = None,
+    paginacion: Paginacion = Depends(get_paginacion),
+    db: Session = Depends(get_db),
+):
+    total = count_products_with_filters(db, estado, categoria_id, plataforma, search)
     query = select(Producto)
     if estado:
         query = query.where(Producto.estado == estado)
@@ -21,46 +39,76 @@ def get_all(estado: str | None = None, categoria_id: int | None = None, platafor
     if plataforma:
         query = query.where(Producto.plataforma == plataforma)
     if search:
-        query = query.where((Producto.nombre.like(f"%{search}%")) | (Producto.descripcion.like(f"%{search}%")))
-    products = db.scalars(query.order_by(Producto.created_at.desc())).all()
-    return {"productos": [product_view(db, product) for product in products]}
+        query = query.where(
+            (Producto.nombre.like(f"%{search}%")) | (Producto.descripcion.like(f"%{search}%"))
+        )
+    products = list(db.scalars(
+        query.order_by(Producto.created_at.desc())
+        .offset(paginacion.skip)
+        .limit(paginacion.size)
+    ).all())
+    return {
+        "items": [product_view(db, p) for p in products],
+        **paginate_query(total, paginacion),
+    }
 
 
-@router.get("/{product_id}")
-def get_by_id(product_id: int, db: Session = Depends(get_db)):
-    product = db.get(Producto, product_id)
-    if not product:
-        raise HTTPException(404, "Producto no encontrado.")
-    return {"producto": product_view(db, product)}
+@router.get(
+    "/{product_id}",
+    summary="Obtener producto por ID",
+    responses={200: {"description": "Producto encontrado"}, 404: {"description": "Producto no encontrado"}},
+)
+def get_by_id(product: Producto = Depends(get_producto_by_id), db: Session = Depends(get_db)):
+    return product_view(db, product)
 
 
-@router.post("", status_code=201)
+@router.post(
+    "",
+    summary="Crear un nuevo producto",
+    status_code=201,
+    responses={201: {"description": "Producto creado"}, 409: {"description": "Conflicto de datos"}},
+)
 def create(data: ProductoEntrada, _: dict = Depends(require_roles("Administrador")), db: Session = Depends(get_db)):
     product = Producto(**data.model_dump())
     db.add(product)
-    db.commit()
-    db.refresh(product)
-    return {"message": "Producto creado exitosamente.", "producto": product_view(db, product)}
+    try:
+        db.commit()
+        db.refresh(product)
+    except IntegrityError:
+        db.rollback()
+        raise ConflictoNegocio("Ya existe un producto con esos datos.")
+    return product_view(db, product)
 
 
-@router.put("/{product_id}")
-def update(product_id: int, data: ProductoUpdate, _: dict = Depends(require_roles("Administrador", "Empleado")), db: Session = Depends(get_db)):
-    product = db.get(Producto, product_id)
-    if not product:
-        raise HTTPException(404, "Producto no encontrado.")
+@router.put(
+    "/{product_id}",
+    summary="Actualizar un producto existente",
+    responses={200: {"description": "Producto actualizado"}, 404: {"description": "Producto no encontrado"}},
+)
+def update(
+    product: Producto = Depends(get_producto_by_id),
+    data: ProductoUpdate = ...,
+    _: dict = Depends(require_roles("Administrador", "Empleado")),
+    db: Session = Depends(get_db),
+):
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(product, key, value)
     db.commit()
     db.refresh(product)
-    return {"message": "Producto actualizado exitosamente.", "producto": product_view(db, product)}
+    return product_view(db, product)
 
 
-@router.delete("/{product_id}")
-def remove(product_id: int, _: dict = Depends(require_roles("Administrador")), db: Session = Depends(get_db)):
-    product = db.get(Producto, product_id)
-    if not product:
-        raise HTTPException(404, "Producto no encontrado.")
+@router.delete(
+    "/{product_id}",
+    summary="Desactivar un producto",
+    status_code=204,
+    responses={204: {"description": "Producto desactivado"}, 404: {"description": "Producto no encontrado"}},
+)
+def remove(
+    product: Producto = Depends(get_producto_by_id),
+    _: dict = Depends(require_roles("Administrador")),
+    db: Session = Depends(get_db),
+):
     product.estado = "inactivo"
     db.commit()
-    db.refresh(product)
-    return {"message": "Producto desactivado exitosamente.", "producto": product_view(db, product)}
+    return Response(status_code=204)

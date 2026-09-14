@@ -18,6 +18,7 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autoflush=False, bind=engine)
 
+
 def override_get_db():
     try:
         db = TestingSessionLocal()
@@ -25,9 +26,11 @@ def override_get_db():
     finally:
         db.close()
 
+
 app.dependency_overrides[get_db] = override_get_db
 
-@pytest.fixture
+
+@pytest.fixture(autouse=True)
 def db():
     Base.metadata.create_all(bind=engine)
     session = TestingSessionLocal()
@@ -36,6 +39,7 @@ def db():
     finally:
         session.close()
         Base.metadata.drop_all(bind=engine)
+
 
 @pytest.fixture
 def client(db):
@@ -62,6 +66,26 @@ def admin_user(db):
         correo="admin@test.com",
         password=hash_password("Admin1234!"),
         rol_id=1,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@pytest.fixture
+def employee_user(db):
+    db.add(Rol(id=2, nombre="Empleado"))
+    user = Usuario(
+        nombre="Empleado",
+        apellido="Test",
+        tipo_documento="cc",
+        numero_documento="100000004",
+        direccion="Calle Empleado 456",
+        telefono="3000000004",
+        correo="empleado@test.com",
+        password=hash_password("Empleado1234!"),
+        rol_id=2,
     )
     db.add(user)
     db.commit()

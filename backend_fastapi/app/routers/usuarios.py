@@ -1,69 +1,100 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import hash_password
-from app.crud.resources import user_view
-from app.dependencies import current_user, require_roles
+from app.crud.resources import get_all_users, count_users, user_view
+from app.dependencies import get_usuario_by_id, require_roles
+from app.exceptions import ConflictoNegocio
 from app.models.entities import Usuario
-from app.models.roles import Rol
+from app.pagination import Paginacion, get_paginacion, paginate_query
 from app.schemas.common import Actualizacion, RegistroUsuario
 
-router = APIRouter(prefix="/usuarios", tags=["usuarios"])
+router = APIRouter(
+    prefix="/usuarios",
+    tags=["usuarios"],
+    dependencies=[Depends(require_roles("Administrador"))],
+)
 
 
-@router.get("")
-def get_all(_: dict = Depends(require_roles("Administrador")), db: Session = Depends(get_db)):
-    users = db.scalars(select(Usuario).order_by(Usuario.created_at.desc())).all()
-    return {"usuarios": [user_view(db, user) for user in users]}
+@router.get(
+    "",
+    summary="Listar todos los usuarios",
+    responses={200: {"description": "Lista paginada de usuarios"}, 401: {"description": "No autenticado"}, 403: {"description": "Acceso denegado"}},
+)
+def get_all(paginacion: Paginacion = Depends(get_paginacion), db: Session = Depends(get_db)):
+    total = count_users(db)
+    users = get_all_users(db)
+    paginated = users[paginacion.skip : paginacion.skip + paginacion.size]
+    return {
+        "items": [user_view(db, u) for u in paginated],
+        **paginate_query(total, paginacion),
+    }
 
 
-@router.get("/{user_id}")
-def get_by_id(user_id: int, _: dict = Depends(current_user), db: Session = Depends(get_db)):
-    user = db.get(Usuario, user_id)
-    if not user:
-        raise HTTPException(404, "Usuario no encontrado.")
-    return {"usuario": user_view(db, user)}
+@router.get(
+    "/{user_id}",
+    summary="Obtener usuario por ID",
+    responses={200: {"description": "Usuario encontrado"}, 404: {"description": "Usuario no encontrado"}},
+)
+def get_by_id(usuario: Usuario = Depends(get_usuario_by_id), db: Session = Depends(get_db)):
+    return user_view(db, usuario)
 
 
-@router.post("", status_code=201)
-def create(data: RegistroUsuario, _: dict = Depends(require_roles("Administrador")), db: Session = Depends(get_db)):
+@router.post(
+    "",
+    summary="Crear un nuevo usuario",
+    status_code=201,
+    responses={201: {"description": "Usuario creado"}, 409: {"description": "Correo o documento duplicado"}},
+)
+def create(data: RegistroUsuario, db: Session = Depends(get_db)):
     if db.scalar(select(Usuario).where((Usuario.correo == data.correo) | (Usuario.numero_documento == data.numero_documento))):
-        raise HTTPException(409, "Ya existe un usuario con este correo o documento.")
+        raise ConflictoNegocio("Ya existe un usuario con este correo o documento.")
     values = data.model_dump(exclude={"password"})
     values["password"] = hash_password(data.password)
     values["rol_id"] = data.rol_id or 3
     user = Usuario(**values)
     db.add(user)
-    db.commit()
-    db.refresh(user)
-    return {"message": "Usuario creado exitosamente.", "usuario": user_view(db, user)}
+    try:
+        db.commit()
+        db.refresh(user)
+    except IntegrityError:
+        db.rollback()
+        raise ConflictoNegocio("Ya existe un usuario con esos datos.")
+    return user_view(db, user)
 
 
-@router.put("/{user_id}")
-def update(user_id: int, data: Actualizacion, _: dict = Depends(require_roles("Administrador")), db: Session = Depends(get_db)):
-    user = db.get(Usuario, user_id)
-    if not user:
-        raise HTTPException(404, "Usuario no encontrado.")
+@router.put(
+    "/{user_id}",
+    summary="Actualizar un usuario existente",
+    responses={200: {"description": "Usuario actualizado"}, 404: {"description": "Usuario no encontrado"}},
+)
+def update(
+    usuario: Usuario = Depends(get_usuario_by_id),
+    data: Actualizacion = ...,
+    db: Session = Depends(get_db),
+):
     values = data.model_dump(exclude_unset=True)
     if "password" in values:
         values["password"] = hash_password(values["password"])
     allowed = {"nombre", "apellido", "tipo_documento", "numero_documento", "direccion", "telefono", "correo", "password", "estado", "rol_id"}
     for key, value in values.items():
         if key in allowed:
-            setattr(user, key, value)
+            setattr(usuario, key, value)
     db.commit()
-    db.refresh(user)
-    return {"message": "Usuario actualizado exitosamente.", "usuario": user_view(db, user)}
+    db.refresh(usuario)
+    return user_view(db, usuario)
 
 
-@router.delete("/{user_id}")
-def remove(user_id: int, _: dict = Depends(require_roles("Administrador")), db: Session = Depends(get_db)):
-    user = db.get(Usuario, user_id)
-    if not user:
-        raise HTTPException(404, "Usuario no encontrado.")
-    user.estado = "inactivo"
+@router.delete(
+    "/{user_id}",
+    summary="Desactivar un usuario",
+    status_code=204,
+    responses={204: {"description": "Usuario desactivado"}, 404: {"description": "Usuario no encontrado"}},
+)
+def remove(usuario: Usuario = Depends(get_usuario_by_id), db: Session = Depends(get_db)):
+    usuario.estado = "inactivo"
     db.commit()
-    db.refresh(user)
-    return {"message": "Usuario desactivado exitosamente (soft delete).", "usuario": user_view(db, user)}
+    return Response(status_code=204)

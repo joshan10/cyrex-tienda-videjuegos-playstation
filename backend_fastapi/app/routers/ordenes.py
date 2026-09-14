@@ -1,48 +1,93 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.crud.resources import create_order, order_view, public_dict
+from app.crud.resources import create_order, get_user_orders, count_orders, get_order_stats, order_view
 from app.dependencies import require_roles, current_user
-from app.models.entities import Orden, OrdenDetalle, Producto, Usuario
+from app.exceptions import RecursoNoEncontrado
+from app.models.entities import Orden
+from app.pagination import Paginacion, get_paginacion, paginate_query
 from app.schemas.common import EstadoOrden, OrdenEntrada
 
 router = APIRouter(prefix="/ordenes", tags=["ordenes"])
 
 
-@router.get("/stats/ventas")
-def stats(_: dict = Depends(require_roles("Administrador")), db: Session = Depends(get_db)):
-    total = db.execute(select(func.count(Orden.id), func.coalesce(func.sum(Orden.total), 0)).where(Orden.estado == "completada")).one()
-    recent = db.execute(select(Orden, Usuario.nombre, Usuario.apellido).join(Usuario, Usuario.id == Orden.usuario_id).order_by(Orden.created_at.desc()).limit(10)).all()
-    best = db.execute(select(Producto.nombre, func.sum(OrdenDetalle.cantidad).label("total_vendido"), func.sum(OrdenDetalle.subtotal).label("ingresos")).join(OrdenDetalle, Producto.id == OrdenDetalle.producto_id).join(Orden, Orden.id == OrdenDetalle.orden_id).where(Orden.estado == "completada").group_by(Producto.id, Producto.nombre).order_by(func.sum(OrdenDetalle.cantidad).desc()).limit(5)).all()
-    return {"stats": {"total_ordenes": total[0], "ingresos_totales": float(total[1]), "ventas_recientes": [{**public_dict(order), "nombre": name, "apellido": surname} for order, name, surname in recent], "productos_mas_vendidos": [{"nombre": name, "total_vendido": quantity, "ingresos": float(income)} for name, quantity, income in best]}}
+@router.get(
+    "/stats/ventas",
+    summary="Estadísticas de ventas",
+    responses={200: {"description": "Estadísticas de ventas"}},
+    dependencies=[Depends(require_roles("Administrador"))],
+)
+def stats(db: Session = Depends(get_db)):
+    return {"stats": get_order_stats(db)}
 
 
-@router.get("")
-def get_all(user: dict = Depends(current_user), db: Session = Depends(get_db)):
-    query = select(Orden).order_by(Orden.created_at.desc())
-    if user["rol_nombre"] == "Cliente": query = query.where(Orden.usuario_id == user["id"])
-    return {"ordenes": [order_view(db, order) for order in db.scalars(query).all()]}
+@router.get(
+    "",
+    summary="Listar órdenes",
+    responses={200: {"description": "Lista paginada de órdenes"}, 401: {"description": "No autenticado"}},
+)
+def get_all(
+    user: dict = Depends(current_user),
+    paginacion: Paginacion = Depends(get_paginacion),
+    db: Session = Depends(get_db),
+):
+    user_id = user["id"] if user["rol_nombre"] == "Cliente" else None
+    total = count_orders(db, user_id)
+    orders = get_user_orders(db, user_id)
+    paginated = orders[paginacion.skip : paginacion.skip + paginacion.size]
+    return {
+        "items": [order_view(db, o) for o in paginated],
+        **paginate_query(total, paginacion),
+    }
 
 
-@router.get("/{order_id}")
+@router.get(
+    "/{order_id}",
+    summary="Obtener orden por ID",
+    responses={200: {"description": "Orden encontrada"}, 404: {"description": "Orden no encontrada"}, 403: {"description": "Acceso denegado"}},
+)
 def get_by_id(order_id: int, user: dict = Depends(current_user), db: Session = Depends(get_db)):
     order = db.get(Orden, order_id)
-    if not order: raise HTTPException(404, "Orden no encontrada.")
-    if user["rol_nombre"] == "Cliente" and order.usuario_id != user["id"]: raise HTTPException(403, "No tienes acceso a esta orden.")
-    return {"orden": order_view(db, order)}
+    if not order:
+        raise RecursoNoEncontrado("Orden", order_id)
+    if user["rol_nombre"] == "Cliente" and order.usuario_id != user["id"]:
+        from fastapi import HTTPException
+        raise HTTPException(403, "No tienes acceso a esta orden.")
+    return order_view(db, order)
 
 
-@router.post("", status_code=201)
+@router.post(
+    "",
+    summary="Crear una nueva orden",
+    status_code=201,
+    responses={201: {"description": "Orden creada"}, 409: {"description": "Stock insuficiente"}, 404: {"description": "Producto no encontrado"}},
+)
 def create(data: OrdenEntrada, user: dict = Depends(require_roles("Cliente")), db: Session = Depends(get_db)):
-    return {"message": "Orden creada exitosamente.", "orden": create_order(db, user["id"], data.items, data.direccion_envio, data.notas)}
+    return {
+        "message": "Orden creada exitosamente.",
+        "orden": create_order(db, user["id"], data.items, data.direccion_envio, data.notas),
+    }
 
 
-@router.patch("/{order_id}/estado")
-def update_status(order_id: int, data: EstadoOrden, _: dict = Depends(require_roles("Administrador", "Empleado")), db: Session = Depends(get_db)):
-    if data.estado not in {"pendiente", "procesando", "completada", "cancelada"}: raise HTTPException(400, "Estado inválido. Usa: pendiente, procesando, completada, cancelada")
+@router.patch(
+    "/{order_id}/estado",
+    summary="Actualizar estado de orden",
+    responses={200: {"description": "Estado actualizado"}, 404: {"description": "Orden no encontrada"}, 400: {"description": "Estado inválido"}},
+)
+def update_status(
+    order_id: int,
+    data: EstadoOrden,
+    _: dict = Depends(require_roles("Administrador", "Empleado")),
+    db: Session = Depends(get_db),
+):
+    if data.estado not in {"pendiente", "procesando", "completada", "cancelada"}:
+        from fastapi import HTTPException
+        raise HTTPException(400, "Estado inválido. Usa: pendiente, procesando, completada, cancelada")
     order = db.get(Orden, order_id)
-    if not order: raise HTTPException(404, "Orden no encontrada.")
-    order.estado = data.estado; db.commit(); db.refresh(order)
+    if not order:
+        raise RecursoNoEncontrado("Orden", order_id)
+    order.estado = data.estado
+    db.commit()
+    db.refresh(order)
     return {"message": "Estado de orden actualizado.", "orden": order_view(db, order)}
