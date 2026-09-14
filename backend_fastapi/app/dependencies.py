@@ -1,4 +1,5 @@
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -8,12 +9,17 @@ from app.exceptions import AccesoDenegado, CuentaInactiva, RecursoNoEncontrado, 
 from app.models.entities import Producto, Usuario
 from app.models.roles import Rol
 
+bearer_scheme = HTTPBearer(auto_error=False)
 
-def current_user(authorization: str | None = Header(default=None), db: Session = Depends(get_db)) -> dict:
-    if not authorization or not authorization.startswith("Bearer "):
+
+def current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> dict:
+    if not credentials:
         raise TokenInvalido("Acceso denegado. Token no proporcionado.")
     try:
-        payload = decode_token(authorization.split(" ", 1)[1])
+        payload = decode_token(credentials.credentials)
         user_id = payload.get("id")
         if not user_id:
             raise ValueError
