@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
@@ -162,6 +163,8 @@ def public_dict(value: Any) -> dict[str, Any]:
     for key, item in data.items():
         if hasattr(item, "quantize"):
             data[key] = float(item)
+        elif isinstance(item, datetime):
+            data[key] = item.isoformat()
     return data
 
 

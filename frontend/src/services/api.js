@@ -161,3 +161,21 @@ export const serviciosAPI = {
   getAll: () => request('/servicios'),
   getById: (id) => request(`/servicios/${id}`)
 };
+
+// =====================================================
+// PAGOS (WOMPI)
+// =====================================================
+export const pagosAPI = {
+  create: (data) =>
+    request('/pagos', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  getById: (id) => request(`/pagos/${id}`),
+  getByOrden: (ordenId) => request(`/pagos/orden/${ordenId}`),
+  simular: (reference, status) =>
+    request('/pagos/simular', {
+      method: 'POST',
+      body: JSON.stringify({ reference, status })
+    })
+};

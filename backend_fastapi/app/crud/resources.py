@@ -1,4 +1,5 @@
 import math
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -70,7 +71,8 @@ def create_order(db: Session, user_id: int, items: list, address: str | None, no
         subtotal = product.precio * item.cantidad
         total += subtotal
         prepared.append((product, item.cantidad, subtotal))
-    order = Orden(usuario_id=user_id, total=total, direccion_envio=address, notas=notes)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    order = Orden(usuario_id=user_id, total=total, direccion_envio=address, notas=notes, created_at=now, updated_at=now)
     db.add(order)
     db.flush()
     for product, quantity, subtotal in prepared:
@@ -80,6 +82,7 @@ def create_order(db: Session, user_id: int, items: list, address: str | None, no
             cantidad=quantity,
             precio_unitario=product.precio,
             subtotal=subtotal,
+            created_at=now,
         ))
         product.stock -= quantity
     db.commit()

@@ -73,7 +73,7 @@ export default function ClienteDashboard() {
 CYREX - FACTURA ELECTRÓNICA
 ================================
 Factura #: ${orden.id}
-Fecha: ${new Date(orden.created_at).toLocaleDateString('es-CO')}
+Fecha: ${orden.created_at ? new Date(orden.created_at).toLocaleDateString('es-CO') : 'Sin fecha'}
 Cliente: ${user?.nombre} ${user?.apellido}
 Correo: ${user?.correo}
 Dirección: ${user?.direccion || 'N/A'}
@@ -101,7 +101,7 @@ Gracias por tu compra en Cyrex Store
   };
 
   const formatPrice = (p) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(p);
-  const formatDate = (d) => new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  const formatDate = (d) => d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Sin fecha';
 
   const statusColors = {
     pendiente: 'bg-yellow-500/15 text-yellow-400',
