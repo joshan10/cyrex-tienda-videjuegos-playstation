@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { usuariosAPI, productosAPI, ordenesAPI } from '../../services/api';
-import LayoutPrincipal from '../../components/layout/LayoutPrincipal';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { uploadAPI } from '../../services/api';
@@ -49,9 +49,9 @@ export default function AdminDashboard() {
         ordenesAPI.getAll(),
         ordenesAPI.getStats()
       ]);
-      setUsuarios(usersData.usuarios || []);
-      setProductos(productsData.productos || []);
-      setOrdenes(ordersData.ordenes || []);
+      setUsuarios(usersData.items || []);
+      setProductos(productsData.items || []);
+      setOrdenes(ordersData.items || []);
       setStats(statsData.stats || null);
     } catch (err) {
       console.error('Error cargando datos:', err);
@@ -192,16 +192,16 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <LayoutPrincipal>
+      <DashboardLayout tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}>
         <div className="flex min-h-[60vh] items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--color-line)] border-t-[var(--color-accent)]" />
         </div>
-      </LayoutPrincipal>
+      </DashboardLayout>
     );
   }
 
   return (
-    <LayoutPrincipal>
+    <DashboardLayout tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}>
       <section className="mx-auto w-full max-w-6xl px-6 py-10">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-accent)]">Panel de Control</p>
@@ -209,22 +209,6 @@ export default function AdminDashboard() {
             Bienvenido, {user?.nombre}
           </h1>
           <p className="mt-1 text-sm text-[var(--color-muted)]">Administrador — Gestión completa del sistema</p>
-        </div>
-
-        <div className="mb-8 flex flex-wrap gap-2 border-b border-[var(--color-line)] pb-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                activeTab === tab.id
-                  ? 'bg-[var(--color-accent)] text-[var(--color-bg)]'
-                  : 'text-[var(--color-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
         </div>
 
         {activeTab === 'resumen' && (
@@ -515,6 +499,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-    </LayoutPrincipal>
+    </DashboardLayout>
   );
 }

@@ -80,7 +80,7 @@ export default function IniciarSesion() {
       }
     } catch (error) {
       console.error('Error en login:', error);
-      setApiError(error.error || 'Error al iniciar sesión. Intenta de nuevo.');
+      setApiError(error.error?.message || error.message || 'Error al iniciar sesión. Intenta de nuevo.');
     } finally {
       setIsLoading(false);
     }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ordenesAPI, usuariosAPI } from '../../services/api';
-import LayoutPrincipal from '../../components/layout/LayoutPrincipal';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 
@@ -30,7 +30,7 @@ export default function ClienteDashboard() {
     try {
       const data = await ordenesAPI.getAll();
       // Filtrar órdenes solo del usuario actual
-      const userOrdenes = (data.ordenes || []).filter(o => o.usuario_id === user.id);
+      const userOrdenes = (data.items || []).filter(o => o.usuario_id === user.id);
       setOrdenes(userOrdenes);
     } catch (err) {
       console.error('Error cargando órdenes:', err);
@@ -112,16 +112,16 @@ Gracias por tu compra en Cyrex Store
 
   if (loading) {
     return (
-      <LayoutPrincipal>
+      <DashboardLayout tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}>
         <div className="flex min-h-[60vh] items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--color-line)] border-t-[var(--color-accent)]" />
         </div>
-      </LayoutPrincipal>
+      </DashboardLayout>
     );
   }
 
   return (
-    <LayoutPrincipal>
+    <DashboardLayout tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}>
       <section className="mx-auto w-full max-w-6xl px-6 py-10">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-accent)]">Mi Cuenta</p>
@@ -129,22 +129,6 @@ Gracias por tu compra en Cyrex Store
             Hola, {user?.nombre}
           </h1>
           <p className="mt-1 text-sm text-[var(--color-muted)]">Aquí puedes gestionar tus compras e información personal</p>
-        </div>
-
-        <div className="mb-8 flex flex-wrap gap-2 border-b border-[var(--color-line)] pb-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                activeTab === tab.id
-                  ? 'bg-[var(--color-accent)] text-[var(--color-bg)]'
-                  : 'text-[var(--color-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
         </div>
 
         {activeTab === 'perfil' && (
@@ -233,6 +217,6 @@ Gracias por tu compra en Cyrex Store
           </div>
         )}
       </section>
-    </LayoutPrincipal>
+    </DashboardLayout>
   );
 }

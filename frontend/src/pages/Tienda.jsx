@@ -24,7 +24,7 @@ export default function Tienda() {
   const loadProducts = async () => {
     try {
       const data = await productosAPI.getAll();
-      const activos = (data.productos || []).filter(p => p.estado === 'activo' && p.stock > 0);
+      const activos = (data.items || []).filter(p => p.estado === 'activo' && p.stock > 0);
       setProductos(activos);
     } catch (err) {
       console.error('Error cargando productos:', err);
