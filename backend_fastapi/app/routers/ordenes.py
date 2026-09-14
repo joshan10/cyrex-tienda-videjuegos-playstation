@@ -64,9 +64,10 @@ def get_by_id(order_id: int, user: dict = Depends(current_user), db: Session = D
     responses={201: {"description": "Orden creada"}, 409: {"description": "Stock insuficiente"}, 404: {"description": "Producto no encontrado"}},
 )
 def create(data: OrdenEntrada, user: dict = Depends(require_roles("Cliente")), db: Session = Depends(get_db)):
+    orden_data = create_order(db, user["id"], data.items, data.direccion_envio, data.notas)
     return {
-        "message": "Orden creada exitosamente.",
-        "orden": create_order(db, user["id"], data.items, data.direccion_envio, data.notas),
+        "message": "Orden creada exitosamente. Procede a pagar con POST /api/pagos.",
+        "orden": orden_data,
     }
 
 

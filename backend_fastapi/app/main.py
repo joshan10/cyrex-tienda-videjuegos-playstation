@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.exceptions import CyrexException
-from app.routers import auth, catalogo, ordenes, productos, upload, usuarios
+from app.routers import auth, catalogo, ordenes, pagos, productos, upload, usuarios
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ tags_metadata = [
     {"name": "categorias", "description": "Gestión de categorías"},
     {"name": "servicios", "description": "Gestión de servicios"},
     {"name": "ordenes", "description": "Gestión de órdenes de compra"},
+    {"name": "pagos", "description": "Gestión de pagos y pasarela de pago Wompi"},
     {"name": "archivos", "description": "Subida de archivos e imágenes"},
 ]
 
@@ -78,6 +79,7 @@ app.include_router(productos.router, prefix="/api")
 app.include_router(catalogo.categories, prefix="/api")
 app.include_router(catalogo.services, prefix="/api")
 app.include_router(ordenes.router, prefix="/api")
+app.include_router(pagos.router, prefix="/api")
 app.include_router(upload.router, prefix="/api")
 
 
@@ -92,6 +94,7 @@ def health():
             "productos": "/api/productos",
             "categorias": "/api/categorias",
             "ordenes": "/api/ordenes",
+            "pagos": "/api/pagos",
             "servicios": "/api/servicios",
             "archivos": "/api/archivos",
         },

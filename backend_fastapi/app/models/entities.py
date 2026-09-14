@@ -92,3 +92,19 @@ class PasswordResetToken(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     used: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class Pago(Base):
+    __tablename__ = "pagos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"))
+    wompi_transaction_id: Mapped[str | None] = mapped_column(String(100))
+    reference: Mapped[str] = mapped_column(String(255), unique=True)
+    amount_in_cents: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(10), default="COP")
+    status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    payment_method_type: Mapped[str | None] = mapped_column(String(20))
+    customer_email: Mapped[str] = mapped_column(String(150))
+    wompi_response: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
