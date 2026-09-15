@@ -90,11 +90,11 @@ def update(
 
 @router.delete(
     "/{user_id}",
-    summary="Desactivar un usuario",
+    summary="Eliminar un usuario",
     status_code=204,
-    responses={204: {"description": "Usuario desactivado"}, 404: {"description": "Usuario no encontrado"}},
+    responses={204: {"description": "Usuario eliminado"}, 404: {"description": "Usuario no encontrado"}},
 )
 def remove(usuario: Usuario = Depends(get_usuario_by_id), db: Session = Depends(get_db)):
-    usuario.estado = "inactivo"
+    db.delete(usuario)
     db.commit()
     return Response(status_code=204)

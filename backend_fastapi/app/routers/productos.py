@@ -100,15 +100,15 @@ def update(
 
 @router.delete(
     "/{product_id}",
-    summary="Desactivar un producto",
+    summary="Eliminar un producto",
     status_code=204,
-    responses={204: {"description": "Producto desactivado"}, 404: {"description": "Producto no encontrado"}},
+    responses={204: {"description": "Producto eliminado"}, 404: {"description": "Producto no encontrado"}},
 )
 def remove(
     product: Producto = Depends(get_producto_by_id),
     _: dict = Depends(require_roles("Administrador")),
     db: Session = Depends(get_db),
 ):
-    product.estado = "inactivo"
+    db.delete(product)
     db.commit()
     return Response(status_code=204)

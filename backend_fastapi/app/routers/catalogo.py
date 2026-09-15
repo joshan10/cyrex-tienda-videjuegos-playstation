@@ -82,15 +82,15 @@ def category_update(item_id: int, data: Actualizacion, db: Session = Depends(get
 
 @categories.delete(
     "/{item_id}",
-    summary="Desactivar una categoría",
+    summary="Eliminar una categoría",
     status_code=204,
-    responses={204: {"description": "Categoría desactivada"}, 404: {"description": "Categoría no encontrada"}},
+    responses={204: {"description": "Categoría eliminada"}, 404: {"description": "Categoría no encontrada"}},
 )
 def category_remove(item_id: int, db: Session = Depends(get_db)):
     item = db.get(Categoria, item_id)
     if not item:
         raise RecursoNoEncontrado("Categoría", item_id)
-    item.estado = "inactivo"
+    db.delete(item)
     db.commit()
     return Response(status_code=204)
 
@@ -157,16 +157,16 @@ def service_update(item_id: int, data: Actualizacion, db: Session = Depends(get_
 
 @services.delete(
     "/{item_id}",
-    summary="Desactivar un servicio",
+    summary="Eliminar un servicio",
     status_code=204,
-    responses={204: {"description": "Servicio desactivado"}, 404: {"description": "Servicio no encontrado"}},
+    responses={204: {"description": "Servicio eliminado"}, 404: {"description": "Servicio no encontrado"}},
     dependencies=[Depends(require_roles("Administrador"))],
 )
 def service_remove(item_id: int, db: Session = Depends(get_db)):
     item = db.get(Servicio, item_id)
     if not item:
         raise RecursoNoEncontrado("Servicio", item_id)
-    item.estado = "inactivo"
+    db.delete(item)
     db.commit()
     return Response(status_code=204)
 
