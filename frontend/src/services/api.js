@@ -179,7 +179,7 @@ export const serviciosAPI = {
 };
 
 // =====================================================
-// PAGOS (WOMPI)
+// PAGOS (STRIPE)
 // =====================================================
 export const pagosAPI = {
   create: (data) =>
@@ -189,9 +189,9 @@ export const pagosAPI = {
     }),
   getById: (id) => request(`/pagos/${id}`),
   getByOrden: (ordenId) => request(`/pagos/orden/${ordenId}`),
-  simular: (reference, status) =>
-    request('/pagos/simular', {
+  simularExito: (sessionId) =>
+    request('/pagos/simular-exito', {
       method: 'POST',
-      body: JSON.stringify({ reference, status })
+      body: JSON.stringify({ session_id: sessionId })
     })
 };

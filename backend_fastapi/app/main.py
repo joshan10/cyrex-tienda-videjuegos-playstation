@@ -23,7 +23,7 @@ tags_metadata = [
     {"name": "categorias", "description": "Gestión de categorías"},
     {"name": "servicios", "description": "Gestión de servicios"},
     {"name": "ordenes", "description": "Gestión de órdenes de compra"},
-    {"name": "pagos", "description": "Gestión de pagos y pasarela de pago Wompi"},
+    {"name": "pagos", "description": "Gestión de pagos con Stripe"},
     {"name": "archivos", "description": "Subida de archivos e imágenes"},
 ]
 

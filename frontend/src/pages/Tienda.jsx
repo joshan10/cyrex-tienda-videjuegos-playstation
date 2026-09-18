@@ -4,7 +4,6 @@ import { productosAPI, ordenesAPI, pagosAPI } from '../services/api';
 import LayoutPrincipal from '../components/layout/LayoutPrincipal';
 import Button from '../components/ui/Button';
 import { useToast } from '../components/ui/Toast';
-import TarjetaModal from '../components/TarjetaModal';
 
 const API_URL = 'http://localhost:4000';
 
@@ -19,11 +18,6 @@ export default function Tienda() {
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [procesando, setProcesando] = useState(false);
-  const [compraExitosa, setCompraExitosa] = useState(false);
-  const [ultimaOrden, setUltimaOrden] = useState(null);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [ordenEnPago, setOrdenEnPago] = useState(null);
-  const [pagoResult, setPagoResult] = useState(null);
 
   const loadProducts = async () => {
     try {
@@ -111,107 +105,36 @@ export default function Tienda() {
     setProcesando(true);
     
     try {
-      const payload = {
-        direccion_envio: user?.direccion || 'Dirección por defecto',
+      const orderPayload = {
+        direccion_envio: (user?.direccion && user.direccion.length >= 10) ? user.direccion : `Envio a nombre de ${user.nombre} ${user.apellido}, correo: ${user.correo}`,
         notas: 'Compra desde tienda web',
         items: carrito.map(item => ({
           producto_id: item.id,
-          cantidad: item.cantidad,
-          precio_unitario: item.precio
+          cantidad: item.cantidad
         }))
       };
 
-      const response = await ordenesAPI.create(payload);
-      setOrdenEnPago(response.orden);
-      setIsCartOpen(false);
-      setIsPaymentModalOpen(true);
-    } catch (err) {
-      console.error('Error al crear la orden:', err);
-      const errorMsg = err.error || err.message || 'Error desconocido';
-      addToast(`Error: ${errorMsg}`, 'error');
-    } finally {
-      setProcesando(false);
-    }
-  };
+      const orderResponse = await ordenesAPI.create(orderPayload);
+      const orden = orderResponse.orden;
 
-  const handlePagoConfirmado = async (cardData) => {
-    if (!ordenEnPago) {
-      addToast('Error: No se encontró la orden. Intenta de nuevo.', 'error');
-      setIsPaymentModalOpen(false);
-      return;
-    }
-    
-    setProcesando(true);
-    try {
       const pagoResponse = await pagosAPI.create({
-        orden_id: ordenEnPago.id,
+        orden_id: orden.id,
         customer_email: user.correo,
-        payment_method_type: 'CARD',
-        token: `tok_test_${cardData.numero.replace(/\s/g, '').slice(-4)}`,
-        installments: 1
+        currency: 'usd'
       });
 
-      const reference = pagoResponse.pago.reference;
-      const simularResponse = await pagosAPI.simular(reference, 'APPROVED');
-      
-      setPagoResult(simularResponse.pago);
-      setIsPaymentModalOpen(false);
-      setUltimaOrden(ordenEnPago);
       setCarrito([]);
       localStorage.removeItem('cyrex_carrito');
-      setCompraExitosa(true);
-      addToast('¡Pago aprobado! Felicidades por tu compra.', 'success');
-      loadProducts();
-      setTimeout(() => setCompraExitosa(false), 10000);
+      setIsCartOpen(false);
+
+      window.location.href = pagoResponse.checkout_url;
     } catch (err) {
-      console.error('Error al procesar el pago:', err);
-      const errorMsg = err.error?.message || err.message || 'Error al procesar el pago';
+      console.error('Error al procesar la compra:', err);
+      const errorMsg = err.error?.message || err.message || 'Error al procesar la compra';
       addToast(`Error: ${errorMsg}`, 'error');
-      setIsPaymentModalOpen(false);
     } finally {
       setProcesando(false);
-      setOrdenEnPago(null);
     }
-  };
-
-  const handlePagoCancelado = () => {
-    setIsPaymentModalOpen(false);
-    setOrdenEnPago(null);
-    addToast('Pago cancelado. La orden permanece pendiente.', 'info');
-  };
-
-  const handleDownloadInvoice = () => {
-    if (!ultimaOrden) return;
-    
-    const invoiceContent = `
-CYREX - FACTURA ELECTRÓNICA
-================================
-Factura #: ${ultimaOrden.id}
-Fecha: ${ultimaOrden.created_at ? new Date(ultimaOrden.created_at).toLocaleDateString('es-CO') : 'Sin fecha'}
-Cliente: ${user?.nombre} ${user?.apellido}
-Correo: ${user?.correo}
-Dirección: ${user?.direccion || 'N/A'}
-Teléfono: ${user?.telefono || 'N/A'}
-
-DETALLE DE LA COMPRA
-================================
-${carrito.map(item => `- ${item.nombre} x${item.cantidad}: $${item.precio * item.cantidad}`).join('\n')}
-
-TOTAL: $${carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0)}
-Estado: ${ultimaOrden.estado}
-
-¡Felicidades por tu compra en Cyrex Store!
-    `.trim();
-
-    const blob = new Blob([invoiceContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `factura_cyrex_${ultimaOrden.id}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -250,26 +173,6 @@ Estado: ${ultimaOrden.estado}
             )}
           </button>
         </div>
-
-        {compraExitosa && (
-          <div className="mb-8 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-4 text-emerald-400">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-lg font-semibold">🎉 ¡Pago Aprobado!</p>
-              <button onClick={() => setCompraExitosa(false)} className="text-emerald-400 hover:text-emerald-300 text-2xl">×</button>
-            </div>
-            <p className="mb-2">Tu pago ha sido procesado exitosamente vía Wompi.</p>
-            {pagoResult && (
-              <div className="mb-4 rounded-lg bg-emerald-500/5 p-3 text-sm">
-                <p><span className="font-semibold">Referencia:</span> {pagoResult.reference}</p>
-                <p><span className="font-semibold">Método:</span> {pagoResult.payment_method_type}</p>
-                <p><span className="font-semibold">Estado:</span> {pagoResult.status}</p>
-              </div>
-            )}
-            <Button onClick={handleDownloadInvoice} className="!bg-emerald-500/20 !text-emerald-400 !border-emerald-500/30 hover:!bg-emerald-500/30">
-              📄 Descargar Factura Electrónica
-            </Button>
-          </div>
-        )}
 
         {/* Grid de Productos */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -372,12 +275,6 @@ Estado: ${ultimaOrden.estado}
           </div>
         </div>
       )}
-      {/* TarjetaModal para pago */}
-      <TarjetaModal
-        isOpen={isPaymentModalOpen}
-        onClose={handlePagoCancelado}
-        onConfirm={handlePagoConfirmado}
-      />
     </LayoutPrincipal>
   );
 }

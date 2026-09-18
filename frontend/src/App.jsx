@@ -15,6 +15,8 @@ import AdminDashboard from './pages/dashboard/AdminDashboard';
 import EmpleadoDashboard from './pages/dashboard/EmpleadoDashboard';
 import ClienteDashboard from './pages/dashboard/ClienteDashboard';
 import Tienda from './pages/Tienda';
+import PagoExitoso from './pages/PagoExitoso';
+import PagoCancelado from './pages/PagoCancelado';
 
 function App() {
   return (
@@ -27,6 +29,8 @@ function App() {
         <Route path="/restablecer-contrasena" element={<RestablecerContrasena />} />
         <Route path="/quienes-somos" element={<QuienesSomos />} />
         <Route path="/contacto" element={<Contacto />} />
+        <Route path="/pago-exitoso" element={<PagoExitoso />} />
+        <Route path="/pago-cancelado" element={<PagoCancelado />} />
 
         {/* Protected Routes */}
         <Route
