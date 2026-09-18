@@ -25,9 +25,25 @@ def test_productos_get_post_put_delete(client, db, admin_user):
     assert response.status_code == 200
     assert response.json()["nombre"] == "God of War Ragnarok"
 
+    response = client.patch(
+        f"/api/productos/{product_id}/estado",
+        headers=admin_headers,
+        json={"estado": "inactivo"},
+    )
+    assert response.status_code == 200
+    assert response.json()["estado"] == "inactivo"
+
+    response = client.patch(
+        f"/api/productos/{product_id}/estado",
+        headers=admin_headers,
+        json={"estado": "activo"},
+    )
+    assert response.status_code == 200
+    assert response.json()["estado"] == "activo"
+
     response = client.delete(f"/api/productos/{product_id}", headers=admin_headers)
     assert response.status_code == 204
-    assert db.get(Producto, product_id).estado == "inactivo"
+    assert db.get(Producto, product_id) is None
 
 
 def test_producto_no_encontrado(client, admin_user):
