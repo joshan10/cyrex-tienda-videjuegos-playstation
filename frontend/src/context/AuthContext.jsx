@@ -24,8 +24,13 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = async (correo, password) => {
-    const data = await authAPI.login(correo, password);
+  const verifyEmail = async (correo) => {
+    const data = await authAPI.verifyEmail(correo);
+    return data;
+  };
+
+  const login = async (token, password) => {
+    const data = await authAPI.login(token, password);
     localStorage.setItem('cyrex_token', data.token);
     localStorage.setItem('cyrex_user', JSON.stringify(data.user));
     setUser(data.user);
@@ -46,7 +51,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = { user, loading, login, register, logout };
+  const value = { user, loading, verifyEmail, login, register, logout };
 
   return (
     <AuthContext.Provider value={value}>

@@ -46,6 +46,40 @@ class RegistroUsuario(APIModel):
     )
 
 
+class VerifyEmail(APIModel):
+    correo: EmailStr
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        extra="ignore",
+        json_schema_extra={
+            "examples": [
+                {
+                    "correo": "juan@cyrex.com",
+                }
+            ]
+        },
+    )
+
+
+class LoginPassword(APIModel):
+    token: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=1)
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        extra="ignore",
+        json_schema_extra={
+            "examples": [
+                {
+                    "token": "abc123-def456",
+                    "password": "Segura123!",
+                }
+            ]
+        },
+    )
+
+
 class Login(APIModel):
     correo: EmailStr
     password: str
@@ -156,6 +190,18 @@ class OrdenEntrada(APIModel):
 
 class EstadoOrden(APIModel):
     estado: str
+
+
+class CambiarEstado(APIModel):
+    estado: str = Field(pattern=r"^(activo|inactivo)$")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        extra="ignore",
+        json_schema_extra={
+            "examples": [{"estado": "inactivo"}]
+        },
+    )
 
 
 def public_dict(value: Any) -> dict[str, Any]:

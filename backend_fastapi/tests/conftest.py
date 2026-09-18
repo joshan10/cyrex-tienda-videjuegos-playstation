@@ -114,6 +114,10 @@ def customer_user(db):
 
 
 def login_headers(client, email, password):
-    response = client.post("/api/auth/login", json={"correo": email, "password": password})
+    verify_response = client.post("/api/auth/verify-email", json={"correo": email})
+    assert verify_response.status_code == 200
+    token = verify_response.json()["token"]
+
+    response = client.post("/api/auth/login", json={"token": token, "password": password})
     assert response.status_code == 200
     return {"Authorization": f"Bearer {response.json()['token']}"}

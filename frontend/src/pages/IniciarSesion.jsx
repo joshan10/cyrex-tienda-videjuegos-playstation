@@ -6,68 +6,76 @@ import LayoutPrincipal from '../components/layout/LayoutPrincipal';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 
-const initialForm = {
-  correo: '',
-  password: '',
-  remember: false
-};
-
 const validateEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-const validatePassword = (value) => value.length >= 1;
+const sanitizeInput = (value) => value.replace(/[<>'";\\]/g, '').trim();
 
 export default function IniciarSesion() {
-  const [form, setForm] = useState(initialForm);
-  const [errors, setErrors] = useState({});
+  const [step, setStep] = useState(1);
+  const [correo, setCorreo] = useState('');
+  const [password, setPassword] = useState('');
+  const [verificationToken, setVerificationToken] = useState('');
+  const [correoError, setCorreoError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [apiError, setApiError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { verifyEmail, login } = useAuth();
   const navigate = useNavigate();
 
-  const validators = useMemo(
-    () => ({
-      correo: (value) => (!validateEmail(value) ? 'Ingresa un correo valido.' : ''),
-      password: (value) =>
-        !validatePassword(value)
-          ? 'Contrasena insegura: usa 8+ caracteres, mayuscula, numero y simbolo.'
-          : ''
-    }),
-    []
-  );
-
-  const handleChange = (event) => {
-    const { name, value, type, checked } = event.target;
-    const nextValue = type === 'checkbox' ? checked : value;
-    setForm((prev) => ({ ...prev, [name]: nextValue }));
+  const handleCorreoChange = (e) => {
+    const value = sanitizeInput(e.target.value);
+    setCorreo(value);
+    setCorreoError('');
     setApiError('');
-
-    if (name in validators) {
-      setErrors((prev) => ({ ...prev, [name]: validators[name](value) }));
-    }
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    const nextErrors = {
-      correo: validators.correo(form.correo),
-      password: validators.password(form.password)
-    };
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value);
+    setPasswordError('');
+    setApiError('');
+  };
 
-    setErrors(nextErrors);
+  const handleVerifyEmail = async (e) => {
+    e.preventDefault();
 
-    // Si hay errores de validación, no enviar
-    if (Object.values(nextErrors).some((e) => e)) return;
+    if (!validateEmail(correo)) {
+      setCorreoError('Ingresa un correo válido.');
+      return;
+    }
 
     setIsLoading(true);
     setApiError('');
 
     try {
-      console.log('Intentando login con:', form.correo);
-      const data = await login(form.correo, form.password);
-      console.log('Login exitoso, data:', data);
+      const data = await verifyEmail(correo);
+      if (data.verified) {
+        setVerificationToken(data.token);
+        setStep(2);
+      } else {
+        setCorreoError('Correo no registrado.');
+      }
+    } catch (error) {
+      setApiError(error.error?.message || error.message || 'Error al verificar el correo.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      // Redirigir según rol
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    if (password.length < 1) {
+      setPasswordError('Ingresa tu contraseña.');
+      return;
+    }
+
+    setIsLoading(true);
+    setApiError('');
+
+    try {
+      const data = await login(verificationToken, password);
+
       switch (data.user.rol) {
         case 'Administrador':
           navigate('/dashboard/admin');
@@ -79,11 +87,18 @@ export default function IniciarSesion() {
           navigate('/dashboard/cliente');
       }
     } catch (error) {
-      console.error('Error en login:', error);
-      setApiError(error.error?.message || error.message || 'Error al iniciar sesión. Intenta de nuevo.');
+      setApiError(error.error?.message || error.message || 'Contraseña incorrecta. Intenta de nuevo.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGoBack = () => {
+    setStep(1);
+    setPassword('');
+    setVerificationToken('');
+    setApiError('');
+    setPasswordError('');
   };
 
   return (
@@ -92,16 +107,46 @@ export default function IniciarSesion() {
         <div className="grid w-full gap-10 md:grid-cols-2">
           <div className="space-y-5">
             <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-accent)]">Acceso Seguro</p>
-            <h1 className="font-display text-4xl text-[var(--color-text)] md:text-5xl">Iniciar sesion</h1>
+            <h1 className="font-display text-4xl text-[var(--color-text)] md:text-5xl">Iniciar sesión</h1>
             <p className="max-w-md text-[var(--color-muted)]">
-              Continua tu experiencia en Cyrex y accede a lanzamientos, promociones y colecciones
+              Continúa tu experiencia en Cyrex y accede a lanzamientos, promociones y colecciones
               personalizadas de PlayStation.
             </p>
+
+            <div className="mt-8 flex items-center gap-3">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
+                  step === 1
+                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+                    : 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                }`}
+              >
+                1
+              </div>
+              <span className={`text-sm ${step === 1 ? 'text-[var(--color-text)]' : 'text-[var(--color-muted)]'}`}>
+                Correo electrónico
+              </span>
+
+              <div className="mx-2 h-px w-8 bg-[var(--color-line)]" />
+
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
+                  step === 2
+                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+                    : 'border-[var(--color-line)] text-[var(--color-muted)]'
+                }`}
+              >
+                2
+              </div>
+              <span className={`text-sm ${step === 2 ? 'text-[var(--color-text)]' : 'text-[var(--color-muted)]'}`}>
+                Contraseña
+              </span>
+            </div>
           </div>
 
           <form
             className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] p-7 shadow-[0_14px_55px_rgba(0,0,0,.24)]"
-            onSubmit={handleSubmit}
+            onSubmit={step === 1 ? handleVerifyEmail : handleLogin}
             noValidate
           >
             {apiError && (
@@ -110,54 +155,65 @@ export default function IniciarSesion() {
               </div>
             )}
 
-            <div className="space-y-4">
-              <Input
-                id="correo"
-                name="correo"
-                type="email"
-                label="Correo"
-                value={form.correo}
-                onChange={handleChange}
-                error={errors.correo}
-                placeholder="usuario@correo.com"
-              />
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                label="Contrasena"
-                value={form.password}
-                onChange={handleChange}
-                error={errors.password}
-                placeholder="********"
-              />
-            </div>
-
-            <label className="mt-4 flex items-center gap-2 text-sm text-[var(--color-muted)]">
-              <input
-                type="checkbox"
-                name="remember"
-                checked={form.remember}
-                onChange={handleChange}
-                className="h-4 w-4 rounded border-[var(--color-line)] bg-transparent"
-              />
-              Recordarme
-            </label>
+            {step === 1 ? (
+              <div className="space-y-4">
+                <p className="text-sm text-[var(--color-muted)]">
+                  Ingresa tu correo electrónico para continuar.
+                </p>
+                <Input
+                  id="correo"
+                  name="correo"
+                  type="email"
+                  label="Correo"
+                  value={correo}
+                  onChange={handleCorreoChange}
+                  error={correoError}
+                  placeholder="usuario@correo.com"
+                  disabled={isLoading}
+                />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-[var(--color-muted)]">
+                  Correo verificado: <span className="font-medium text-[var(--color-text)]">{correo}</span>
+                </p>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  label="Contraseña"
+                  value={password}
+                  onChange={handlePasswordChange}
+                  error={passwordError}
+                  placeholder="********"
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={handleGoBack}
+                  className="text-sm text-[var(--color-muted)] transition hover:text-[var(--color-text)]"
+                >
+                  ← Cambiar correo
+                </button>
+              </div>
+            )}
 
             <Button type="submit" className="mt-6 w-full" disabled={isLoading}>
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-bg)] border-t-transparent" />
-                  Iniciando...
+                  {step === 1 ? 'Verificando...' : 'Iniciando...'}
                 </span>
+              ) : step === 1 ? (
+                'Continuar'
               ) : (
-                'Iniciar sesion'
+                'Iniciar sesión'
               )}
             </Button>
 
             <div className="mt-5 flex items-center justify-between text-sm">
               <Link className="text-[var(--color-muted)] transition hover:text-[var(--color-text)]" to="/recuperar-contrasena">
-                Olvide mi contrasena
+                Olvidé mi contraseña
               </Link>
               <button
                 type="button"
