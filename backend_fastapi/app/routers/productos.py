@@ -9,7 +9,7 @@ from app.dependencies import get_producto_by_id, require_roles
 from app.exceptions import ConflictoNegocio
 from app.models.entities import Producto
 from app.pagination import Paginacion, get_paginacion, paginate_query
-from app.schemas.common import ProductoEntrada, ProductoUpdate
+from app.schemas.common import CambiarEstado, ProductoEntrada, ProductoUpdate
 
 router = APIRouter(
     prefix="/productos",
@@ -93,6 +93,23 @@ def update(
 ):
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(product, key, value)
+    db.commit()
+    db.refresh(product)
+    return product_view(db, product)
+
+
+@router.patch(
+    "/{product_id}/estado",
+    summary="Cambiar estado de un producto (activar/desactivar)",
+    responses={200: {"description": "Estado actualizado"}, 404: {"description": "Producto no encontrado"}},
+)
+def change_status(
+    product: Producto = Depends(get_producto_by_id),
+    data: CambiarEstado = ...,
+    _: dict = Depends(require_roles("Administrador")),
+    db: Session = Depends(get_db),
+):
+    product.estado = data.estado
     db.commit()
     db.refresh(product)
     return product_view(db, product)

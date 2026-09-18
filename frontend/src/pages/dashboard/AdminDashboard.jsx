@@ -61,12 +61,24 @@ export default function AdminDashboard() {
   };
 
   // --- Usuarios ---
-  const handleToggleUserStatus = async (id) => {
+  const handleToggleUserStatus = async (id, estadoActual) => {
+    const nuevoEstado = estadoActual === 'activo' ? 'inactivo' : 'activo';
     try {
-      await usuariosAPI.remove(id);
+      await usuariosAPI.changeStatus(id, nuevoEstado);
       loadData();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDeleteUser = async (id) => {
+    if (confirm('¿Eliminar este usuario definitivamente? Esta acción no se puede deshacer.')) {
+      try {
+        await usuariosAPI.remove(id);
+        loadData();
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -150,7 +162,16 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteProduct = async (id) => {
-    if (confirm('¿Desactivar este producto?')) {
+    try {
+      await productosAPI.changeStatus(id, 'inactivo');
+      loadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteProductPermanent = async (id) => {
+    if (confirm('¿Eliminar este producto definitivamente? Esta acción no se puede deshacer.')) {
       try {
         await productosAPI.remove(id);
         loadData();
@@ -287,13 +308,21 @@ export default function AdminDashboard() {
                           >
                             Editar
                           </button>
-                          {u.estado === 'activo' && u.id !== user?.id && (
-                            <button
-                              onClick={() => handleToggleUserStatus(u.id)}
-                              className="text-xs text-red-400 transition hover:text-red-300"
-                            >
-                              Desactivar
-                            </button>
+                          {u.id !== user?.id && (
+                            <>
+                              <button
+                                onClick={() => handleToggleUserStatus(u.id, u.estado)}
+                                className={`text-xs transition ${u.estado === 'activo' ? 'text-amber-400 hover:text-amber-300' : 'text-emerald-400 hover:text-emerald-300'}`}
+                              >
+                                {u.estado === 'activo' ? 'Desactivar' : 'Activar'}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(u.id)}
+                                className="text-xs text-red-400 transition hover:text-red-300"
+                              >
+                                Eliminar
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -338,9 +367,19 @@ export default function AdminDashboard() {
                       </Button>
                       <button
                         onClick={() => handleDeleteProduct(p.id)}
+                        className={`rounded-lg border px-3 py-2 text-xs transition ${
+                          p.estado === 'activo'
+                            ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10'
+                            : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
+                        }`}
+                      >
+                        {p.estado === 'activo' ? 'Desactivar' : 'Activar'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProductPermanent(p.id)}
                         className="rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-400 transition hover:bg-red-500/10"
                       >
-                        Desactivar
+                        Eliminar
                       </button>
                     </div>
                   </div>

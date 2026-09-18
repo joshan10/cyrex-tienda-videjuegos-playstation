@@ -53,10 +53,16 @@ export const uploadAPI = {
 // AUTH
 // =====================================================
 export const authAPI = {
-  login: (correo, password) =>
+  verifyEmail: (correo) =>
+    request('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ correo })
+    }),
+
+  login: (token, password) =>
     request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ correo, password })
+      body: JSON.stringify({ token, password })
     }),
 
   register: (userData) =>
@@ -96,6 +102,11 @@ export const usuariosAPI = {
       method: 'PUT',
       body: JSON.stringify(data)
     }),
+  changeStatus: (id, estado) =>
+    request(`/usuarios/${id}/estado`, {
+      method: 'PATCH',
+      body: JSON.stringify({ estado })
+    }),
   remove: (id) =>
     request(`/usuarios/${id}`, { method: 'DELETE' })
 };
@@ -122,6 +133,11 @@ export const productosAPI = {
     request(`/productos/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data)
+    }),
+  changeStatus: (id, estado) =>
+    request(`/productos/${id}/estado`, {
+      method: 'PATCH',
+      body: JSON.stringify({ estado })
     }),
   remove: (id) =>
     request(`/productos/${id}`, { method: 'DELETE' })

@@ -1,4 +1,5 @@
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -6,19 +7,21 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.sanitization import detect_sql_injection, sanitize_email, validate_and_sanitize_input
 from app.core.security import create_token, hash_password, verify_password
 from app.crud.resources import permissions, user_view
 from app.dependencies import current_user
 from app.exceptions import ConflictoNegocio, CredencialesInvalidas, CuentaInactiva, RecursoNoEncontrado
-from app.models.entities import PasswordResetToken, Usuario
+from app.models.entities import EmailVerificationToken, PasswordResetToken, Usuario
 from app.models.roles import Rol
-from app.schemas.common import ForgotPassword, Login, RegistroUsuario, ResetPassword
+from app.schemas.common import ForgotPassword, Login, LoginPassword, RegistroUsuario, ResetPassword, VerifyEmail
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def find_user(db: Session, email: str):
-    return db.scalar(select(Usuario).where(Usuario.correo == email))
+    sanitized = sanitize_email(email)
+    return db.scalar(select(Usuario).where(Usuario.correo == sanitized))
 
 
 def token_for(db: Session, user: Usuario) -> str:
@@ -39,6 +42,9 @@ def enviar_email_confirmacion(email: str, nombre: str):
     responses={409: {"description": "Correo o documento duplicado"}},
 )
 def register(data: RegistroUsuario, db: Session = Depends(get_db)):
+    if detect_sql_injection(data.correo) or detect_sql_injection(data.nombre) or detect_sql_injection(data.apellido):
+        raise ConflictoNegocio("Entrada no válida.")
+
     if find_user(db, data.correo):
         raise ConflictoNegocio("Ya existe un usuario con este correo electrónico.")
     if db.scalar(select(Usuario).where(Usuario.numero_documento == data.numero_documento)):
@@ -63,16 +69,74 @@ def register(data: RegistroUsuario, db: Session = Depends(get_db)):
 
 
 @router.post(
-    "/login",
-    summary="Iniciar sesión",
-    responses={401: {"description": "Credenciales incorrectas"}, 403: {"description": "Cuenta desactivada"}},
+    "/verify-email",
+    summary="Verificar correo electrónico (paso 1 del login)",
+    responses={404: {"description": "Correo no registrado"}},
 )
-def login(data: Login, db: Session = Depends(get_db)):
+def verify_email(data: VerifyEmail, db: Session = Depends(get_db)):
+    if detect_sql_injection(data.correo):
+        raise ConflictoNegocio("Entrada no válida.")
+
     user = find_user(db, data.correo)
-    if not user or not verify_password(data.password, user.password):
-        raise CredencialesInvalidas()
+    if not user:
+        return {"message": "Si el correo existe, puedes continuar.", "verified": False}
+
     if user.estado == "inactivo":
         raise CuentaInactiva()
+
+    token_value = str(uuid.uuid4())
+    verification_token = EmailVerificationToken(
+        correo=user.correo,
+        token=token_value,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+        used=False,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(verification_token)
+    db.commit()
+
+    return {
+        "message": "Correo verificado. Continúa con tu contraseña.",
+        "verified": True,
+        "token": token_value,
+    }
+
+
+@router.post(
+    "/login",
+    summary="Iniciar sesión (paso 2 del login)",
+    responses={401: {"description": "Credenciales incorrectas"}, 403: {"description": "Cuenta desactivada"}},
+)
+def login(data: LoginPassword, db: Session = Depends(get_db)):
+    if detect_sql_injection(data.token):
+        raise CredencialesInvalidas()
+
+    verification = db.scalar(
+        select(EmailVerificationToken).where(
+            EmailVerificationToken.token == data.token,
+            EmailVerificationToken.used == False,
+        )
+    )
+
+    if not verification:
+        raise CredencialesInvalidas()
+
+    if verification.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        raise CredencialesInvalidas()
+
+    user = find_user(db, verification.correo)
+    if not user:
+        raise CredencialesInvalidas()
+
+    verification.used = True
+    db.commit()
+
+    if not verify_password(data.password, user.password):
+        raise CredencialesInvalidas()
+
+    if user.estado == "inactivo":
+        raise CuentaInactiva()
+
     role = db.scalar(select(Rol.nombre).where(Rol.id == user.rol_id))
     view = user_view(db, user)
     view.update({"rol": role, "permisos": permissions(db, user.rol_id)})
@@ -101,6 +165,9 @@ def forgot_password(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
+    if detect_sql_injection(data.correo):
+        return {"message": "Si el correo existe, se han enviado instrucciones de recuperación."}
+
     user = find_user(db, data.correo)
     if not user:
         return {"message": "Si el correo existe, se han enviado instrucciones de recuperación."}

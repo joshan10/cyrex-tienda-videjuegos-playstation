@@ -94,6 +94,16 @@ class PasswordResetToken(Base):
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class EmailVerificationToken(Base):
+    __tablename__ = "email_verification_tokens"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    correo: Mapped[str] = mapped_column(String(150), index=True)
+    token: Mapped[str] = mapped_column(String(255), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    used: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class Pago(Base):
     __tablename__ = "pagos"
     id: Mapped[int] = mapped_column(primary_key=True)

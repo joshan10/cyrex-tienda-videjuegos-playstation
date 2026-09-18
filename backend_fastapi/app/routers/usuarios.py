@@ -10,7 +10,7 @@ from app.dependencies import get_usuario_by_id, require_roles
 from app.exceptions import ConflictoNegocio
 from app.models.entities import Usuario
 from app.pagination import Paginacion, get_paginacion, paginate_query
-from app.schemas.common import Actualizacion, RegistroUsuario
+from app.schemas.common import Actualizacion, CambiarEstado, RegistroUsuario
 
 router = APIRouter(
     prefix="/usuarios",
@@ -83,6 +83,22 @@ def update(
     for key, value in values.items():
         if key in allowed:
             setattr(usuario, key, value)
+    db.commit()
+    db.refresh(usuario)
+    return user_view(db, usuario)
+
+
+@router.patch(
+    "/{user_id}/estado",
+    summary="Cambiar estado de un usuario (activar/desactivar)",
+    responses={200: {"description": "Estado actualizado"}, 404: {"description": "Usuario no encontrado"}},
+)
+def change_status(
+    usuario: Usuario = Depends(get_usuario_by_id),
+    data: CambiarEstado = ...,
+    db: Session = Depends(get_db),
+):
+    usuario.estado = data.estado
     db.commit()
     db.refresh(usuario)
     return user_view(db, usuario)
