@@ -10,7 +10,7 @@ class Base(DeclarativeBase):
 
 connect_args = {}
 if settings.db_use_ssl.lower() == "true":
-    connect_args = {"ssl": {"ssl-mode": "REQUIRED"}}
+    connect_args = {"ssl_disabled": False}
 
 engine = create_engine(
     settings.database_url,

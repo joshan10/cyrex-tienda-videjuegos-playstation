@@ -36,10 +36,7 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        url = f"mysql+pymysql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
-        if self.db_use_ssl.lower() == "true":
-            url += "?ssl=%7B%22sslmode%22%3A+%22require%22%7D"
-        return url
+        return f"mysql+pymysql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
 
 settings = Settings()
