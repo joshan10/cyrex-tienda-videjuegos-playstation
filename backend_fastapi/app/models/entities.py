@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -118,3 +118,42 @@ class Pago(Base):
     stripe_response: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class Venta(Base):
+    __tablename__ = "ventas"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orden_id: Mapped[int] = mapped_column(ForeignKey("ordenes.id"), unique=True)
+    numero_factura: Mapped[str] = mapped_column(String(50), unique=True)
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    impuesto_valor: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    impuesto_porcentaje: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0)
+    descuento_valor: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    descuento_porcentaje: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0)
+    total_neto: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    metodo_pago: Mapped[str] = mapped_column(String(50), default="stripe")
+    notas_factura: Mapped[str | None] = mapped_column(Text, nullable=True)
+    estado: Mapped[str] = mapped_column(String(20), default="activa")
+    fecha_venta: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    orden: Mapped["Orden"] = relationship("Orden")
+    detalles: Mapped[list["VentaDetalle"]] = relationship("VentaDetalle", back_populates="venta")
+
+
+class VentaDetalle(Base):
+    __tablename__ = "ventas_detalles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    venta_id: Mapped[int] = mapped_column(ForeignKey("ventas.id"))
+    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id"))
+    servicio_id: Mapped[int | None] = mapped_column(ForeignKey("servicios.id"), nullable=True)
+    cantidad: Mapped[int] = mapped_column(Integer)
+    precio_unitario: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    impuesto_item: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    descuento_item: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    venta: Mapped["Venta"] = relationship("Venta", back_populates="detalles")
+    producto: Mapped["Producto"] = relationship("Producto")

@@ -91,4 +91,17 @@ def update_status(
     order.estado = data.estado
     db.commit()
     db.refresh(order)
+
+    if data.estado == "completada":
+        from sqlalchemy import select as sa_select
+        from app.models.entities import Venta
+        existing = db.scalar(sa_select(Venta).where(Venta.orden_id == order_id))
+        if not existing:
+            from app.crud.ventas import crear_venta
+            from decimal import Decimal
+            try:
+                crear_venta(db, orden_id=order_id, impuesto_porcentaje=Decimal("19"))
+            except Exception:
+                pass
+
     return {"message": "Estado de orden actualizado.", "orden": order_view(db, order)}

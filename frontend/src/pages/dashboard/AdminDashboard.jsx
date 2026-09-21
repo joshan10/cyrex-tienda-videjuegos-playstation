@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { usuariosAPI, productosAPI, ordenesAPI } from '../../services/api';
+import { usuariosAPI, productosAPI, ordenesAPI, ventasAPI } from '../../services/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { uploadAPI } from '../../services/api';
+import { VentasBarChart, VentasLineChart, TopProductosChart, ResumenCards } from '../../components/dashboard/VentasCharts';
 
 const API_URL = 'http://localhost:4000'; // base para uploads
 
@@ -13,7 +14,9 @@ const tabs = [
   { id: 'resumen',   label: 'Resumen' },
   { id: 'usuarios',  label: 'Usuarios' },
   { id: 'productos', label: 'Productos' },
-  { id: 'ventas',    label: 'Ventas' }
+  { id: 'ventas',    label: 'Ventas' },
+  { id: 'facturas',  label: 'Facturas' },
+  { id: 'reportes',  label: 'Reportes' }
 ];
 
 export default function AdminDashboard() {
@@ -23,7 +26,17 @@ export default function AdminDashboard() {
   const [productos, setProductos] = useState([]);
   const [ordenes, setOrdenes] = useState([]);
   const [stats, setStats] = useState(null);
+  const [facturas, setFacturas] = useState([]);
+  const [facturasStats, setFacturasStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [facturaFilters, setFacturaFilters] = useState({
+    numero_factura: '',
+    cliente_correo: '',
+    fecha_desde: '',
+    fecha_hasta: ''
+  });
+  const [reporteData, setReporteData] = useState(null);
+  const [reporteFechas, setReporteFechas] = useState({ fecha_inicio: '', fecha_fin: '' });
 
   // Estado para modales de edición de productos
   const [editingProduct, setEditingProduct] = useState(null);
@@ -35,10 +48,6 @@ export default function AdminDashboard() {
   const [editingUser, setEditingUser] = useState(null);
   const [userForm, setUserForm] = useState({ nombre: '', apellido: '', correo: '', telefono: '', direccion: '', rol_id: 3, estado: 'activo' });
   const [showUserModal, setShowUserModal] = useState(false);
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -53,12 +62,22 @@ export default function AdminDashboard() {
       setProductos(productsData.items || []);
       setOrdenes(ordersData.items || []);
       setStats(statsData.stats || null);
+
+      // Cargar datos de ventas de forma independiente (no bloquea el resto)
+      ventasAPI.getAll().then(d => setFacturas(d.items || [])).catch(() => {});
+      ventasAPI.getStats().then(d => setFacturasStats(d.stats || null)).catch(() => {});
     } catch (err) {
       console.error('Error cargando datos:', err);
     } finally {
       setLoading(false);
     }
   };
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    loadData();
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // --- Usuarios ---
   const handleToggleUserStatus = async (id, estadoActual) => {
@@ -191,6 +210,50 @@ export default function AdminDashboard() {
     }
   };
 
+  // --- Facturas ---
+  const handleFacturaFilter = async () => {
+    try {
+      const filters = {};
+      if (facturaFilters.numero_factura) filters.numero_factura = facturaFilters.numero_factura;
+      if (facturaFilters.cliente_correo) filters.cliente_correo = facturaFilters.cliente_correo;
+      if (facturaFilters.fecha_desde) filters.fecha_desde = facturaFilters.fecha_desde;
+      if (facturaFilters.fecha_hasta) filters.fecha_hasta = facturaFilters.fecha_hasta;
+      const data = await ventasAPI.getAll(filters);
+      setFacturas(data.items || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleClearFacturaFilters = async () => {
+    setFacturaFilters({ numero_factura: '', cliente_correo: '', fecha_desde: '', fecha_hasta: '' });
+    try {
+      const data = await ventasAPI.getAll();
+      setFacturas(data.items || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // --- Reportes ---
+  const cargarReporte = async () => {
+    try {
+      const data = await ventasAPI.getReporteDetallado(reporteFechas.fecha_inicio, reporteFechas.fecha_fin);
+      setReporteData(data.reporte || null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      await ventasAPI.downloadExcel(reporteFechas.fecha_inicio, reporteFechas.fecha_fin);
+    } catch (err) {
+      console.error(err);
+      alert('Error al exportar Excel');
+    }
+  };
+
   const formatPrice = (p) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(p);
   const formatDate = (d) => d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Sin fecha';
 
@@ -239,7 +302,11 @@ export default function AdminDashboard() {
                 { label: 'Usuarios', value: usuarios.length, color: 'text-blue-400' },
                 { label: 'Productos', value: productos.length, color: 'text-purple-400' },
                 { label: 'Órdenes', value: ordenes.length, color: 'text-amber-400' },
-                { label: 'Ingresos', value: stats ? formatPrice(stats.ingresos_totales) : '$0', color: 'text-emerald-400' }
+                { label: 'Ingresos', value: stats ? formatPrice(stats.ingresos_totales) : '$0', color: 'text-emerald-400' },
+                { label: 'Facturas', value: facturasStats?.num_facturas || 0, color: 'text-cyan-400' },
+                { label: 'Facturado', value: facturasStats ? formatPrice(facturasStats.total_facturado) : '$0', color: 'text-emerald-400' },
+                { label: 'Impuestos', value: facturasStats ? formatPrice(facturasStats.total_impuestos) : '$0', color: 'text-rose-400' },
+                { label: 'Descuentos', value: facturasStats ? formatPrice(facturasStats.total_descuentos) : '$0', color: 'text-orange-400' }
               ].map((card) => (
                 <div key={card.label} className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-5">
                   <p className="text-xs uppercase tracking-widest text-[var(--color-muted)]">{card.label}</p>
@@ -439,6 +506,139 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'facturas' && (
+          <div className="space-y-4">
+            {/* Filtros de facturación */}
+            <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-5">
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-widest text-[var(--color-text)]">Buscar Facturas</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Input
+                  label="N° Factura"
+                  placeholder="CYR-2026-"
+                  value={facturaFilters.numero_factura}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, numero_factura: e.target.value }))}
+                />
+                <Input
+                  label="Correo Cliente"
+                  placeholder="correo@ejemplo.com"
+                  value={facturaFilters.cliente_correo}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, cliente_correo: e.target.value }))}
+                />
+                <Input
+                  label="Fecha Desde"
+                  type="date"
+                  value={facturaFilters.fecha_desde}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, fecha_desde: e.target.value }))}
+                />
+                <Input
+                  label="Fecha Hasta"
+                  type="date"
+                  value={facturaFilters.fecha_hasta}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, fecha_hasta: e.target.value }))}
+                />
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button onClick={handleFacturaFilter}>Buscar</Button>
+                <Button variant="secondary" onClick={handleClearFacturaFilters}>Limpiar</Button>
+              </div>
+            </div>
+
+            {/* Tabla de facturas */}
+            <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-widest text-[var(--color-muted)]">
+                      <th className="px-5 py-4">N° Factura</th>
+                      <th className="px-5 py-4">Cliente</th>
+                      <th className="px-5 py-4">Subtotal</th>
+                      <th className="px-5 py-4">Impuestos</th>
+                      <th className="px-5 py-4">Descuento</th>
+                      <th className="px-5 py-4">Total</th>
+                      <th className="px-5 py-4">Estado</th>
+                      <th className="px-5 py-4">Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {facturas.map((f) => (
+                      <tr key={f.id} className="border-b border-[var(--color-line)] last:border-0">
+                        <td className="px-5 py-4 font-mono text-xs font-medium text-[var(--color-accent)]">{f.numero_factura}</td>
+                        <td className="px-5 py-4 text-[var(--color-text)]">{f.usuario_nombre} {f.usuario_apellido}</td>
+                        <td className="px-5 py-4 text-[var(--color-muted)]">{formatPrice(f.subtotal)}</td>
+                        <td className="px-5 py-4 text-rose-400">{formatPrice(f.impuesto_valor)}</td>
+                        <td className="px-5 py-4 text-orange-400">{formatPrice(f.descuento_valor)}</td>
+                        <td className="px-5 py-4 font-semibold text-emerald-400">{formatPrice(f.total_neto)}</td>
+                        <td className="px-5 py-4">
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${f.estado === 'activa' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
+                            {f.estado}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-[var(--color-muted)]">{formatDate(f.fecha_venta)}</td>
+                      </tr>
+                    ))}
+                    {facturas.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
+                          No hay facturas registradas aún.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'reportes' && (
+          <div className="space-y-6">
+            {/* Filtros de fecha para reportes */}
+            <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-5">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex-1 min-w-[200px]">
+                  <Input
+                    label="Fecha Inicio"
+                    type="date"
+                    value={reporteFechas.fecha_inicio}
+                    onChange={(e) => setReporteFechas(prev => ({ ...prev, fecha_inicio: e.target.value }))}
+                  />
+                </div>
+                <div className="flex-1 min-w-[200px]">
+                  <Input
+                    label="Fecha Fin"
+                    type="date"
+                    value={reporteFechas.fecha_fin}
+                    onChange={(e) => setReporteFechas(prev => ({ ...prev, fecha_fin: e.target.value }))}
+                  />
+                </div>
+                <Button onClick={cargarReporte}>Generar Reporte</Button>
+                <Button variant="secondary" onClick={handleExportExcel}>Exportar Excel</Button>
+                <Button variant="secondary" onClick={() => { setReporteFechas({ fecha_inicio: '', fecha_fin: '' }); setReporteData(null); }}>Limpiar</Button>
+              </div>
+            </div>
+
+            {/* Resumen del reporte */}
+            {reporteData && (
+              <>
+                <ResumenCards stats={reporteData.resumen} />
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <VentasBarChart data={reporteData.ventas_por_dia} title="Ventas por día" />
+                  <VentasLineChart data={reporteData.ventas_por_dia} title="Tendencia de ventas" />
+                </div>
+
+                <TopProductosChart data={reporteData.top_productos} title="Top 10 Productos Más Vendidos" />
+              </>
+            )}
+
+            {!reporteData && (
+              <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-10 text-center">
+                <p className="text-sm text-[var(--color-muted)]">Selecciona un rango de fechas y haz clic en "Generar Reporte" para ver los gráficos.</p>
+              </div>
+            )}
           </div>
         )}
       </section>

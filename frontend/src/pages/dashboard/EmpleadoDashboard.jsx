@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { productosAPI, ordenesAPI, usuariosAPI } from '../../services/api';
+import { productosAPI, ordenesAPI, usuariosAPI, ventasAPI } from '../../services/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -8,7 +8,8 @@ import Input from '../../components/ui/Input';
 const tabs = [
   { id: 'perfil', label: 'Mi Perfil' },
   { id: 'productos', label: 'Productos' },
-  { id: 'ventas',    label: 'Órdenes' }
+  { id: 'ventas',    label: 'Órdenes' },
+  { id: 'facturas',  label: 'Facturas' }
 ];
 
 export default function EmpleadoDashboard() {
@@ -16,7 +17,14 @@ export default function EmpleadoDashboard() {
   const [activeTab, setActiveTab] = useState('productos');
   const [productos, setProductos] = useState([]);
   const [ordenes, setOrdenes] = useState([]);
+  const [facturas, setFacturas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [facturaFilters, setFacturaFilters] = useState({
+    numero_factura: '',
+    cliente_correo: '',
+    fecha_desde: '',
+    fecha_hasta: ''
+  });
 
   // Estado para el modal de edición de productos
   const [editingProduct, setEditingProduct] = useState(null);
@@ -41,6 +49,9 @@ export default function EmpleadoDashboard() {
       ]);
       setProductos(productsData.items || []);
       setOrdenes(ordersData.items || []);
+
+      // Cargar facturas de forma independiente
+      ventasAPI.getAll().then(d => setFacturas(d.items || [])).catch(() => {});
     } catch (err) {
       console.error('Error cargando datos:', err);
     } finally {
@@ -105,6 +116,31 @@ export default function EmpleadoDashboard() {
     try {
       await ordenesAPI.updateEstado(id, estado);
       loadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // --- Facturas ---
+  const handleFacturaFilter = async () => {
+    try {
+      const filters = {};
+      if (facturaFilters.numero_factura) filters.numero_factura = facturaFilters.numero_factura;
+      if (facturaFilters.cliente_correo) filters.cliente_correo = facturaFilters.cliente_correo;
+      if (facturaFilters.fecha_desde) filters.fecha_desde = facturaFilters.fecha_desde;
+      if (facturaFilters.fecha_hasta) filters.fecha_hasta = facturaFilters.fecha_hasta;
+      const data = await ventasAPI.getAll(filters);
+      setFacturas(data.items || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleClearFacturaFilters = async () => {
+    setFacturaFilters({ numero_factura: '', cliente_correo: '', fecha_desde: '', fecha_hasta: '' });
+    try {
+      const data = await ventasAPI.getAll();
+      setFacturas(data.items || []);
     } catch (err) {
       console.error(err);
     }
@@ -263,6 +299,86 @@ export default function EmpleadoDashboard() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'facturas' && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-5">
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-widest text-[var(--color-text)]">Buscar Facturas</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Input
+                  label="N° Factura"
+                  placeholder="CYR-2026-"
+                  value={facturaFilters.numero_factura}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, numero_factura: e.target.value }))}
+                />
+                <Input
+                  label="Correo Cliente"
+                  placeholder="correo@ejemplo.com"
+                  value={facturaFilters.cliente_correo}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, cliente_correo: e.target.value }))}
+                />
+                <Input
+                  label="Fecha Desde"
+                  type="date"
+                  value={facturaFilters.fecha_desde}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, fecha_desde: e.target.value }))}
+                />
+                <Input
+                  label="Fecha Hasta"
+                  type="date"
+                  value={facturaFilters.fecha_hasta}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, fecha_hasta: e.target.value }))}
+                />
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button onClick={handleFacturaFilter}>Buscar</Button>
+                <Button variant="secondary" onClick={handleClearFacturaFilters}>Limpiar</Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-widest text-[var(--color-muted)]">
+                      <th className="px-5 py-4">N° Factura</th>
+                      <th className="px-5 py-4">Cliente</th>
+                      <th className="px-5 py-4">Subtotal</th>
+                      <th className="px-5 py-4">Impuestos</th>
+                      <th className="px-5 py-4">Total</th>
+                      <th className="px-5 py-4">Estado</th>
+                      <th className="px-5 py-4">Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {facturas.map((f) => (
+                      <tr key={f.id} className="border-b border-[var(--color-line)] last:border-0">
+                        <td className="px-5 py-4 font-mono text-xs font-medium text-[var(--color-accent)]">{f.numero_factura}</td>
+                        <td className="px-5 py-4 text-[var(--color-text)]">{f.usuario_nombre} {f.usuario_apellido}</td>
+                        <td className="px-5 py-4 text-[var(--color-muted)]">{formatPrice(f.subtotal)}</td>
+                        <td className="px-5 py-4 text-rose-400">{formatPrice(f.impuesto_valor)}</td>
+                        <td className="px-5 py-4 font-semibold text-emerald-400">{formatPrice(f.total_neto)}</td>
+                        <td className="px-5 py-4">
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${f.estado === 'activa' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
+                            {f.estado}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-[var(--color-muted)]">{formatDate(f.fecha_venta)}</td>
+                      </tr>
+                    ))}
+                    {facturas.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
+                          No hay facturas registradas aún.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

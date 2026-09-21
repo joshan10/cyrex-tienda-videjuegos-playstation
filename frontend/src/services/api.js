@@ -195,3 +195,64 @@ export const pagosAPI = {
       body: JSON.stringify({ session_id: sessionId })
     })
 };
+
+// =====================================================
+// VENTAS / FACTURACIÓN
+// =====================================================
+export const ventasAPI = {
+  getAll: (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, val]) => {
+      if (val) params.append(key, val);
+    });
+    const query = params.toString();
+    return request(`/ventas${query ? `?${query}` : ''}`);
+  },
+  getById: (id) => request(`/ventas/${id}`),
+  getByNumero: (numero) => request(`/ventas/factura/${numero}`),
+  create: (data) =>
+    request('/ventas', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  update: (id, data) =>
+    request(`/ventas/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    }),
+  getStats: () => request('/ventas/stats/dashboard'),
+  getReporteDiario: (fechaInicio, fechaFin) => {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fecha_inicio', fechaInicio);
+    if (fechaFin) params.append('fecha_fin', fechaFin);
+    const query = params.toString();
+    return request(`/ventas/reporte/diario${query ? `?${query}` : ''}`);
+  },
+  getReporteDetallado: (fechaInicio, fechaFin) => {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fecha_inicio', fechaInicio);
+    if (fechaFin) params.append('fecha_fin', fechaFin);
+    const query = params.toString();
+    return request(`/ventas/reporte/detallado${query ? `?${query}` : ''}`);
+  },
+  downloadExcel: async (fechaInicio, fechaFin) => {
+    const token = localStorage.getItem('cyrex_token');
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fecha_inicio', fechaInicio);
+    if (fechaFin) params.append('fecha_fin', fechaFin);
+    const query = params.toString();
+    const response = await fetch(`${API_URL}/ventas/reporte/excel${query ? `?${query}` : ''}`, {
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) }
+    });
+    if (!response.ok) throw { status: response.status, error: 'Error descargando Excel' };
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'reporte_ventas_cyrex.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+};

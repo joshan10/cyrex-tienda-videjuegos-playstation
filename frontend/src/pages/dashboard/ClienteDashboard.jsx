@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { ordenesAPI, usuariosAPI } from '../../services/api';
+import { ordenesAPI, usuariosAPI, ventasAPI } from '../../services/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -14,6 +14,7 @@ export default function ClienteDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('perfil');
   const [ordenes, setOrdenes] = useState([]);
+  const [facturasMap, setFacturasMap] = useState({});
   const [loading, setLoading] = useState(true);
 
   // Estado para edición de perfil
@@ -28,10 +29,16 @@ export default function ClienteDashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await ordenesAPI.getAll();
-      // Filtrar órdenes solo del usuario actual
-      const userOrdenes = (data.items || []).filter(o => o.usuario_id === user.id);
+      const ordersData = await ordenesAPI.getAll();
+      const userOrdenes = (ordersData.items || []).filter(o => o.usuario_id === user.id);
       setOrdenes(userOrdenes);
+
+      // Cargar facturas de forma independiente
+      ventasAPI.getAll().then(d => {
+        const map = {};
+        (d.items || []).forEach(f => { map[f.orden_id] = f; });
+        setFacturasMap(map);
+      }).catch(() => {});
     } catch (err) {
       console.error('Error cargando órdenes:', err);
     } finally {
@@ -69,10 +76,49 @@ export default function ClienteDashboard() {
   };
 
   const handleDownloadInvoice = (orden) => {
-    const invoiceContent = `
+    const factura = facturasMap[orden.id];
+
+    if (factura) {
+      const invoiceContent = `
 CYREX - FACTURA ELECTRÓNICA
-================================
-Factura #: ${orden.id}
+========================
+N° Factura: ${factura.numero_factura}
+Fecha: ${factura.fecha_venta ? new Date(factura.fecha_venta).toLocaleDateString('es-CO') : 'Sin fecha'}
+Cliente: ${user?.nombre} ${user?.apellido}
+Documento: ${user?.numero_documento || 'N/A'}
+Correo: ${user?.correo}
+Dirección: ${user?.direccion || 'N/A'}
+Teléfono: ${user?.telefono || 'N/A'}
+
+DETALLE DE LA COMPRA
+========================
+${factura.detalles?.map(d => `- ${d.producto_nombre} x${d.cantidad}: $${d.precio_unitario * d.cantidad}`).join('\n') ||orden.detalles?.map(d => `- ${d.producto_nombre} x${d.cantidad}: $${d.precio_unitario * d.cantidad}`).join('\n')}
+
+Subtotal: $${factura.subtotal}
+Impuestos (${factura.impuesto_porcentaje}%): $${factura.impuesto_valor}
+Descuento (${factura.descuento_porcentaje}%): -$${factura.descuento_valor}
+TOTAL NETO: $${factura.total_neto}
+Método de pago: ${factura.metodo_pago}
+Estado: ${factura.estado}
+
+Gracias por tu compra en Cyrex Store
+      `.trim();
+
+      const blob = new Blob([invoiceContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `factura_${factura.numero_factura}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else {
+      // Fallback: generar factura básica desde la orden
+      const invoiceContent = `
+CYREX - FACTURA ELECTRÓNICA
+========================
+Orden #: ${orden.id}
 Fecha: ${orden.created_at ? new Date(orden.created_at).toLocaleDateString('es-CO') : 'Sin fecha'}
 Cliente: ${user?.nombre} ${user?.apellido}
 Correo: ${user?.correo}
@@ -80,24 +126,25 @@ Dirección: ${user?.direccion || 'N/A'}
 Teléfono: ${user?.telefono || 'N/A'}
 
 DETALLE DE LA COMPRA
-================================
+========================
 ${orden.detalles?.map(d => `- ${d.producto_nombre} x${d.cantidad}: $${d.precio_unitario * d.cantidad}`).join('\n')}
 
 TOTAL: $${orden.total}
 Estado: ${orden.estado}
 
 Gracias por tu compra en Cyrex Store
-    `.trim();
+      `.trim();
 
-    const blob = new Blob([invoiceContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `factura_cyrex_${orden.id}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const blob = new Blob([invoiceContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `factura_cyrex_${orden.id}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   };
 
   const formatPrice = (p) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(p);
@@ -180,6 +227,7 @@ Gracias por tu compra en Cyrex Store
                 <thead>
                   <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-widest text-[var(--color-muted)]">
                     <th className="px-5 py-4"># Orden</th>
+                    <th className="px-5 py-4">N° Factura</th>
                     <th className="px-5 py-4">Fecha</th>
                     <th className="px-5 py-4">Total</th>
                     <th className="px-5 py-4">Estado</th>
@@ -190,6 +238,9 @@ Gracias por tu compra en Cyrex Store
                   {ordenes.map((o) => (
                     <tr key={o.id} className="border-b border-[var(--color-line)] last:border-0">
                       <td className="px-5 py-4 font-medium text-[var(--color-text)]">#{o.id}</td>
+                      <td className="px-5 py-4 font-mono text-xs text-[var(--color-accent)]">
+                        {facturasMap[o.id]?.numero_factura || '—'}
+                      </td>
                       <td className="px-5 py-4 text-[var(--color-muted)]">{formatDate(o.created_at)}</td>
                       <td className="px-5 py-4 font-semibold text-[var(--color-accent)]">{formatPrice(o.total)}</td>
                       <td className="px-5 py-4">
@@ -206,7 +257,7 @@ Gracias por tu compra en Cyrex Store
                   ))}
                   {ordenes.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
+                      <td colSpan={6} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
                         Aún no has realizado ninguna compra.
                       </td>
                     </tr>
