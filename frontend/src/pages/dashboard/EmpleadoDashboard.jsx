@@ -350,6 +350,7 @@ export default function EmpleadoDashboard() {
                       <th className="px-5 py-4">Impuestos</th>
                       <th className="px-5 py-4">Total</th>
                       <th className="px-5 py-4">Estado</th>
+                      <th className="px-5 py-4">PDF</th>
                       <th className="px-5 py-4">Fecha</th>
                     </tr>
                   </thead>
@@ -367,6 +368,7 @@ export default function EmpleadoDashboard() {
                           </span>
                         </td>
                         <td className="px-5 py-4 text-[var(--color-muted)]">{formatDate(f.fecha_venta)}</td>
+                        <td className="px-5 py-4"><Button variant="secondary" className="!px-3 !py-1 !text-xs" onClick={() => ventasAPI.downloadInvoicePdf(f.numero_factura)}>Descargar</Button></td>
                       </tr>
                     ))}
                     {facturas.length === 0 && (

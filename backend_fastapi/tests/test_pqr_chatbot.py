@@ -25,6 +25,15 @@ def test_customer_can_create_and_list_own_pqr(client, customer_user):
     assert [item["id"] for item in listing.json()] == [pqr["id"]]
 
 
+def test_staff_can_read_pqr_summary(client, employee_user):
+    headers = login_headers(client, employee_user.correo, "Empleado1234!")
+
+    response = client.get("/api/pqr/resumen", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json() == {"total": 0, "pendientes": 0}
+
+
 def test_staff_can_update_pqr_and_customer_cannot_update_it(client, db, customer_user, employee_user):
     pqr = PQR(
         usuario_id=customer_user.id,

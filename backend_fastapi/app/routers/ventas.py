@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -19,7 +20,9 @@ from app.crud.ventas import (
 from app.dependencies import current_user, require_roles
 from app.exceptions import RecursoNoEncontrado
 from app.pagination import Paginacion, get_paginacion, paginate_query
+from app.models.entities import Orden, Venta
 from app.schemas.ventas import FacturaFiltros, VentaActualizar, VentaEntrada
+from app.services.pdf_service import invoice_pdf, sales_report_pdf
 
 router = APIRouter(prefix="/ventas", tags=["ventas"])
 
@@ -94,6 +97,20 @@ def stats_dashboard(
     db: Session = Depends(get_db),
 ):
     return {"stats": obtener_stats_ventas(db)}
+
+
+@router.get(
+    "/mis-facturas",
+    summary="Listar facturas del cliente autenticado",
+)
+def mis_facturas(user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    ventas = db.scalars(
+        select(Venta)
+        .join(Orden, Venta.orden_id == Orden.id)
+        .where(Orden.usuario_id == user["id"])
+        .order_by(Venta.fecha_venta.desc())
+    ).all()
+    return {"items": [obtener_venta_por_numero(db, venta.numero_factura) for venta in ventas]}
 
 
 @router.get(
@@ -216,6 +233,54 @@ def reporte_excel(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get(
+    "/reporte/pdf",
+    summary="Exportar reporte de ventas en PDF",
+    responses={200: {"description": "Archivo PDF"}},
+)
+def reporte_pdf(
+    fecha_inicio: str | None = Query(default=None, description="Formato: YYYY-MM-DD"),
+    fecha_fin: str | None = Query(default=None, description="Formato: YYYY-MM-DD"),
+    _: dict = Depends(require_roles("Administrador")),
+    db: Session = Depends(get_db),
+):
+    rows = generar_datos_excel(db, fecha_inicio, fecha_fin)
+    buffer = sales_report_pdf(rows, fecha_inicio, fecha_fin)
+    filename = f"reporte_ventas_cyrex_{fecha_inicio or 'completo'}.pdf"
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get(
+    "/factura/{numero_factura}/pdf",
+    summary="Descargar factura en PDF",
+    responses={200: {"description": "Factura PDF"}, 403: {"description": "Factura de otro cliente"}},
+)
+def factura_pdf(
+    numero_factura: str,
+    user: dict = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    venta = db.scalar(select(Venta).where(Venta.numero_factura == numero_factura))
+    if not venta:
+        raise RecursoNoEncontrado("Factura", numero_factura)
+    orden = db.get(Orden, venta.orden_id)
+    is_staff = user["rol_nombre"] in {"Administrador", "Empleado"}
+    if not orden or (not is_staff and orden.usuario_id != user["id"]):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="No puedes descargar esta factura")
+    invoice = obtener_venta_por_numero(db, numero_factura)
+    buffer = invoice_pdf(invoice)
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=factura_{numero_factura}.pdf"},
     )
 
 

@@ -219,9 +219,9 @@
 17. ~~Integración del Chatbot con IA (#20)~~ ✅ Proveedor compatible con OpenAI y fallback FAQ local
 
 ### Fase 4: PDF y Despliegue
-18. Descarga de facturas en PDF (#18)
-19. Exportación del reporte en PDF (#19)
-20. Integración completa y despliegue (#21)
+18. ~~Descarga de facturas en PDF (#18)~~ ✅ Endpoint protegido, plantilla ReportLab y botones en dashboards
+19. ~~Exportación del reporte en PDF (#19)~~ ✅ Reporte filtrable con totales y descarga desde Admin
+20. Integración completa y despliegue (#21) ⏳ Pendiente: excluido de esta fase
 
 ---
 

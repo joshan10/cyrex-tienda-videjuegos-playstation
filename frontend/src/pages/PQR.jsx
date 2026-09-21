@@ -1,11 +1,23 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { pqrAPI } from '../services/api';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import DashboardLayout from '../components/layout/DashboardLayout';
 
-const tabs = [{ id: 'pqr', label: 'PQR' }];
+const tabsByRole = {
+  Administrador: [
+    { id: 'resumen', label: 'Resumen' }, { id: 'usuarios', label: 'Usuarios' },
+    { id: 'productos', label: 'Productos' }, { id: 'ventas', label: 'Ventas' },
+    { id: 'facturas', label: 'Facturas' }, { id: 'reportes', label: 'Reportes' }, { id: 'pqr', label: 'PQR' }
+  ],
+  Empleado: [
+    { id: 'perfil', label: 'Mi Perfil' }, { id: 'productos', label: 'Productos' },
+    { id: 'ventas', label: 'Órdenes' }, { id: 'facturas', label: 'Facturas' }, { id: 'pqr', label: 'PQR' }
+  ],
+  Cliente: [{ id: 'perfil', label: 'Mi Perfil' }, { id: 'ordenes', label: 'Mis Órdenes' }, { id: 'pqr', label: 'PQR' }]
+};
 const statusLabels = {
   pendiente: 'Pendiente',
   en_proceso: 'En proceso',
@@ -15,7 +27,10 @@ const statusLabels = {
 
 export default function PQR() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isStaff = ['Administrador', 'Empleado'].includes(user?.rol);
+  const tabs = tabsByRole[user?.rol] || tabsByRole.Cliente;
+  const dashboardPath = user?.rol === 'Administrador' ? '/dashboard/admin' : user?.rol === 'Empleado' ? '/dashboard/empleado' : '/dashboard/cliente';
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -57,7 +72,7 @@ export default function PQR() {
   };
 
   return (
-    <DashboardLayout tabs={tabs} activeTab="pqr" onTabChange={() => {}}>
+    <DashboardLayout tabs={tabs} activeTab="pqr" onTabChange={(tab) => tab === 'pqr' ? null : navigate(dashboardPath)}>
       <section className="mx-auto w-full max-w-6xl px-6 py-10">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-accent)]">Atención al cliente</p>

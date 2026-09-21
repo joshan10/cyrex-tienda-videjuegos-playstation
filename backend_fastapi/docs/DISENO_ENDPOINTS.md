@@ -85,6 +85,14 @@ Tabla de diseño recurso-verbo-ruta-código previa al código.
 | Chatbot | POST | /api/chatbot/message | 200 | Enviar mensaje y recibir respuesta FAQ o IA |
 | Chatbot | GET | /api/chatbot/{conversation_id} | 200 | Consultar historial propio |
 
+## PDF y reportes
+
+| Recurso | Verbo | Ruta | Código | Descripción |
+|---------|-------|------|--------|-------------|
+| Reportes | GET | /api/ventas/reporte/pdf | 200 | Descargar reporte de ventas en PDF (Administrador) |
+| Facturas | GET | /api/ventas/factura/{numero_factura}/pdf | 200 | Descargar factura PDF (cliente propietario, Empleado o Administrador) |
+| Facturas | GET | /api/ventas/mis-facturas | 200 | Listar facturas del cliente autenticado |
+
 ## Errores comunes
 
 | Código | Descripción |

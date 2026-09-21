@@ -210,6 +210,7 @@ export const ventasAPI = {
   },
   getById: (id) => request(`/ventas/${id}`),
   getByNumero: (numero) => request(`/ventas/factura/${numero}`),
+  getMine: () => request('/ventas/mis-facturas'),
   create: (data) =>
     request('/ventas', {
       method: 'POST',
@@ -250,6 +251,42 @@ export const ventasAPI = {
     const a = document.createElement('a');
     a.href = url;
     a.download = 'reporte_ventas_cyrex.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+  downloadPdf: async (fechaInicio, fechaFin) => {
+    const token = localStorage.getItem('cyrex_token');
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fecha_inicio', fechaInicio);
+    if (fechaFin) params.append('fecha_fin', fechaFin);
+    const query = params.toString();
+    const response = await fetch(`${API_URL}/ventas/reporte/pdf${query ? `?${query}` : ''}`, {
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) }
+    });
+    if (!response.ok) throw { status: response.status, error: 'Error descargando PDF' };
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'reporte_ventas_cyrex.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+  downloadInvoicePdf: async (numeroFactura) => {
+    const token = localStorage.getItem('cyrex_token');
+    const response = await fetch(`${API_URL}/ventas/factura/${encodeURIComponent(numeroFactura)}/pdf`, {
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) }
+    });
+    if (!response.ok) throw { status: response.status, error: 'Error descargando factura PDF' };
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `factura_${numeroFactura}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

@@ -254,6 +254,15 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleExportPdf = async () => {
+    try {
+      await ventasAPI.downloadPdf(reporteFechas.fecha_inicio, reporteFechas.fecha_fin);
+    } catch (err) {
+      console.error(err);
+      alert('Error al exportar PDF');
+    }
+  };
+
   const formatPrice = (p) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(p);
   const formatDate = (d) => d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Sin fecha';
 
@@ -560,6 +569,7 @@ export default function AdminDashboard() {
                       <th className="px-5 py-4">Total</th>
                       <th className="px-5 py-4">Estado</th>
                       <th className="px-5 py-4">Fecha</th>
+                      <th className="px-5 py-4">PDF</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -577,6 +587,7 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td className="px-5 py-4 text-[var(--color-muted)]">{formatDate(f.fecha_venta)}</td>
+                        <td className="px-5 py-4"><Button variant="secondary" className="!px-3 !py-1 !text-xs" onClick={() => ventasAPI.downloadInvoicePdf(f.numero_factura)}>Descargar</Button></td>
                       </tr>
                     ))}
                     {facturas.length === 0 && (
@@ -616,6 +627,7 @@ export default function AdminDashboard() {
                 </div>
                 <Button onClick={cargarReporte}>Generar Reporte</Button>
                 <Button variant="secondary" onClick={handleExportExcel}>Exportar Excel</Button>
+                <Button variant="secondary" onClick={handleExportPdf}>Exportar PDF</Button>
                 <Button variant="secondary" onClick={() => { setReporteFechas({ fecha_inicio: '', fecha_fin: '' }); setReporteData(null); }}>Limpiar</Button>
               </div>
             </div>

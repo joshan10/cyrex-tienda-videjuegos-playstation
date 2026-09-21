@@ -28,6 +28,7 @@ tags_metadata = [
     {"name": "archivos", "description": "Subida de archivos e imágenes"},
     {"name": "PQR", "description": "Peticiones, quejas y reclamos de clientes"},
     {"name": "Chatbot", "description": "Atención automatizada y conversaciones con IA"},
+    {"name": "PDF y reportes", "description": "Descarga de facturas y reportes en formato PDF"},
 ]
 
 app = FastAPI(

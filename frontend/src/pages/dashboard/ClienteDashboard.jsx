@@ -34,7 +34,7 @@ export default function ClienteDashboard() {
       setOrdenes(userOrdenes);
 
       // Cargar facturas de forma independiente
-      ventasAPI.getAll().then(d => {
+      ventasAPI.getMine().then(d => {
         const map = {};
         (d.items || []).forEach(f => { map[f.orden_id] = f; });
         setFacturasMap(map);
@@ -75,75 +75,13 @@ export default function ClienteDashboard() {
     }
   };
 
-  const handleDownloadInvoice = (orden) => {
+  const handleDownloadInvoice = async (orden) => {
     const factura = facturasMap[orden.id];
 
     if (factura) {
-      const invoiceContent = `
-CYREX - FACTURA ELECTRÓNICA
-========================
-N° Factura: ${factura.numero_factura}
-Fecha: ${factura.fecha_venta ? new Date(factura.fecha_venta).toLocaleDateString('es-CO') : 'Sin fecha'}
-Cliente: ${user?.nombre} ${user?.apellido}
-Documento: ${user?.numero_documento || 'N/A'}
-Correo: ${user?.correo}
-Dirección: ${user?.direccion || 'N/A'}
-Teléfono: ${user?.telefono || 'N/A'}
-
-DETALLE DE LA COMPRA
-========================
-${factura.detalles?.map(d => `- ${d.producto_nombre} x${d.cantidad}: $${d.precio_unitario * d.cantidad}`).join('\n') ||orden.detalles?.map(d => `- ${d.producto_nombre} x${d.cantidad}: $${d.precio_unitario * d.cantidad}`).join('\n')}
-
-Subtotal: $${factura.subtotal}
-Impuestos (${factura.impuesto_porcentaje}%): $${factura.impuesto_valor}
-Descuento (${factura.descuento_porcentaje}%): -$${factura.descuento_valor}
-TOTAL NETO: $${factura.total_neto}
-Método de pago: ${factura.metodo_pago}
-Estado: ${factura.estado}
-
-Gracias por tu compra en Cyrex Store
-      `.trim();
-
-      const blob = new Blob([invoiceContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `factura_${factura.numero_factura}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await ventasAPI.downloadInvoicePdf(factura.numero_factura);
     } else {
-      // Fallback: generar factura básica desde la orden
-      const invoiceContent = `
-CYREX - FACTURA ELECTRÓNICA
-========================
-Orden #: ${orden.id}
-Fecha: ${orden.created_at ? new Date(orden.created_at).toLocaleDateString('es-CO') : 'Sin fecha'}
-Cliente: ${user?.nombre} ${user?.apellido}
-Correo: ${user?.correo}
-Dirección: ${user?.direccion || 'N/A'}
-Teléfono: ${user?.telefono || 'N/A'}
-
-DETALLE DE LA COMPRA
-========================
-${orden.detalles?.map(d => `- ${d.producto_nombre} x${d.cantidad}: $${d.precio_unitario * d.cantidad}`).join('\n')}
-
-TOTAL: $${orden.total}
-Estado: ${orden.estado}
-
-Gracias por tu compra en Cyrex Store
-      `.trim();
-
-      const blob = new Blob([invoiceContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `factura_cyrex_${orden.id}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      alert('Esta orden todavía no tiene una factura generada.');
     }
   };
 
