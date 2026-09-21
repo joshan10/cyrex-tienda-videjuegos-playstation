@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_expires_in: str = "24h"
     cors_origin: str = "http://localhost:5173"
+    cors_origins: str = ""
     frontend_url: str = "http://localhost:5173"
 
     # Stripe Configuration

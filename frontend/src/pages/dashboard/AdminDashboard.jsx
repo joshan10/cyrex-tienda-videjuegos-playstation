@@ -7,7 +7,7 @@ import Input from '../../components/ui/Input';
 import { uploadAPI } from '../../services/api';
 import { VentasBarChart, VentasLineChart, TopProductosChart, ResumenCards } from '../../components/dashboard/VentasCharts';
 
-const API_URL = 'http://localhost:4000'; // base para uploads
+const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:4000'; // base para uploads
 
 
 const tabs = [

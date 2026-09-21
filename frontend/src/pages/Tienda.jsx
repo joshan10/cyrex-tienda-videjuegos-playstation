@@ -5,7 +5,7 @@ import LayoutPrincipal from '../components/layout/LayoutPrincipal';
 import Button from '../components/ui/Button';
 import { useToast } from '../components/ui/Toast';
 
-const API_URL = 'http://localhost:4000';
+const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:4000';
 
 export default function Tienda() {
   const { user } = useAuth();

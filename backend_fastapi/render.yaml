@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: cyrex-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "4000"
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: "cyrex_db"
+      - key: CORS_ORIGIN
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_CURRENCY_DEFAULT
+        value: "usd"
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_MODEL
+        value: "gemini-3.6-flash"
+      - key: AI_BASE_URL
+        value: "https://generativelanguage.googleapis.com/v1beta/openai"
