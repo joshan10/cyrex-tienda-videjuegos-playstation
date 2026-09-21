@@ -137,6 +137,43 @@ CREATE TABLE ordenes_detalles (
   FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
+-- =====================================================
+-- 10. TABLAS: PQR Y CHATBOT
+-- =====================================================
+CREATE TABLE pqr (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id      INT NOT NULL,
+  tipo            VARCHAR(20) NOT NULL,
+  asunto          VARCHAR(200) NOT NULL,
+  descripcion     TEXT NOT NULL,
+  estado          VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+  respuesta       TEXT DEFAULT NULL,
+  fecha_creacion  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  fecha_respuesta TIMESTAMP NULL DEFAULT NULL,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+  INDEX idx_pqr_usuario (usuario_id),
+  INDEX idx_pqr_estado (estado)
+) ENGINE=InnoDB;
+
+CREATE TABLE conversaciones_chat (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+  INDEX idx_chat_usuario (usuario_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE mensajes_chat (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  conversacion_id INT NOT NULL,
+  rol             VARCHAR(20) NOT NULL,
+  contenido       TEXT NOT NULL,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (conversacion_id) REFERENCES conversaciones_chat(id) ON DELETE CASCADE,
+  INDEX idx_mensaje_conversacion (conversacion_id)
+) ENGINE=InnoDB;
+
 
 -- =====================================================
 -- SEED DATA

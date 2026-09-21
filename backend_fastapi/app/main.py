@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.exceptions import CyrexException
-from app.routers import auth, catalogo, ordenes, pagos, productos, upload, usuarios, ventas
+from app.routers import auth, catalogo, chatbot, ordenes, pagos, pqr, productos, upload, usuarios, ventas
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,6 +26,8 @@ tags_metadata = [
     {"name": "pagos", "description": "Gestión de pagos con Stripe"},
     {"name": "ventas", "description": "Gestión de ventas y facturación"},
     {"name": "archivos", "description": "Subida de archivos e imágenes"},
+    {"name": "PQR", "description": "Peticiones, quejas y reclamos de clientes"},
+    {"name": "Chatbot", "description": "Atención automatizada y conversaciones con IA"},
 ]
 
 app = FastAPI(
@@ -87,6 +89,8 @@ app.include_router(ordenes.router, prefix="/api")
 app.include_router(pagos.router, prefix="/api")
 app.include_router(ventas.router, prefix="/api")
 app.include_router(upload.router, prefix="/api")
+app.include_router(pqr.router, prefix="/api")
+app.include_router(chatbot.router, prefix="/api")
 
 
 @app.get("/api", summary="Health check de la API")
@@ -104,6 +108,8 @@ def health():
             "ventas": "/api/ventas",
             "servicios": "/api/servicios",
             "archivos": "/api/archivos",
+            "pqr": "/api/pqr",
+            "chatbot": "/api/chatbot",
         },
     }
 

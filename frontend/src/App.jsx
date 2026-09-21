@@ -17,6 +17,8 @@ import ClienteDashboard from './pages/dashboard/ClienteDashboard';
 import Tienda from './pages/Tienda';
 import PagoExitoso from './pages/PagoExitoso';
 import PagoCancelado from './pages/PagoCancelado';
+import PQR from './pages/PQR';
+import ChatbotWidget from './components/ChatbotWidget';
 
 function App() {
   return (
@@ -31,6 +33,7 @@ function App() {
         <Route path="/contacto" element={<Contacto />} />
         <Route path="/pago-exitoso" element={<PagoExitoso />} />
         <Route path="/pago-cancelado" element={<PagoCancelado />} />
+        <Route path="/pqr" element={<ProtectedRoute><PQR /></ProtectedRoute>} />
 
         {/* Protected Routes */}
         <Route
@@ -69,6 +72,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <WhatsAppButton />
+      <ChatbotWidget />
     </AuthProvider>
   );
 }

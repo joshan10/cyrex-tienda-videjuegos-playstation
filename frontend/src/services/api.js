@@ -256,3 +256,22 @@ export const ventasAPI = {
     URL.revokeObjectURL(url);
   }
 };
+
+// =====================================================
+// PQR Y CHATBOT
+// =====================================================
+export const pqrAPI = {
+  getAll: (estado = '') => request(`/pqr${estado ? `?estado=${encodeURIComponent(estado)}` : ''}`),
+  getById: (id) => request(`/pqr/${id}`),
+  create: (data) => request('/pqr', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/pqr/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getSummary: () => request('/pqr/resumen')
+};
+
+export const chatbotAPI = {
+  send: (mensaje, conversacionId = null) => request('/chatbot/message', {
+    method: 'POST',
+    body: JSON.stringify({ mensaje, conversacion_id: conversacionId })
+  }),
+  getHistory: (conversationId) => request(`/chatbot/${conversationId}`)
+};

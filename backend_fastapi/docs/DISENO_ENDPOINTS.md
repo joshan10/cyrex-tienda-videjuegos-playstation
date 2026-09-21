@@ -68,6 +68,23 @@ Tabla de diseño recurso-verbo-ruta-código previa al código.
 |---------|-------|------|--------|-------------|
 | Archivos | POST | /api/archivos | 201 | Subir imagen (Admin) |
 
+## PQR
+
+| Recurso | Verbo | Ruta | Código | Descripción |
+|---------|-------|------|--------|-------------|
+| PQR | POST | /api/pqr | 201 | Registrar una petición, queja o reclamo (usuario autenticado) |
+| PQR | GET | /api/pqr | 200 | Listar PQR propias o todas para Admin/Empleado |
+| PQR | GET | /api/pqr/{pqr_id} | 200 | Consultar una PQR propia o autorizada |
+| PQR | PATCH | /api/pqr/{pqr_id} | 200 | Actualizar estado y respuesta (Admin/Empleado) |
+| PQR | GET | /api/pqr/resumen | 200 | Indicadores de PQR (Admin/Empleado) |
+
+## Chatbot
+
+| Recurso | Verbo | Ruta | Código | Descripción |
+|---------|-------|------|--------|-------------|
+| Chatbot | POST | /api/chatbot/message | 200 | Enviar mensaje y recibir respuesta FAQ o IA |
+| Chatbot | GET | /api/chatbot/{conversation_id} | 200 | Consultar historial propio |
+
 ## Errores comunes
 
 | Código | Descripción |

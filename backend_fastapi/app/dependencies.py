@@ -12,6 +12,31 @@ from app.models.roles import Rol
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> dict | None:
+    """Returns the authenticated user when a valid bearer token is present."""
+    if not credentials:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+        user_id = payload.get("id")
+        if not user_id:
+            return None
+    except (JWTError, ValueError, IndexError):
+        return None
+    row = db.execute(
+        select(Usuario, Rol.nombre)
+        .join(Rol, Usuario.rol_id == Rol.id)
+        .where(Usuario.id == user_id)
+    ).first()
+    if not row or row[0].estado == "inactivo":
+        return None
+    user, role = row
+    return {"id": user.id, "nombre": user.nombre, "apellido": user.apellido, "correo": user.correo, "rol_id": user.rol_id, "rol_nombre": role}
+
+
 def current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),

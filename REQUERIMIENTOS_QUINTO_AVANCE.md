@@ -20,35 +20,40 @@
 
 ## Requerimientos Ordenados (Del más fácil al más difícil)
 
-### 1. Consulta de facturas
+### ~~1. Consulta de facturas~~ ✅
 - **Dificultad:** Fácil
 - **Prioridad:** Alta
 - **Depende de:** Ninguno
 - **Justificación:** Ya existe el endpoint de historial de órdenes. Solo hay que crear un endpoint similar para facturas con filtros por número, cliente y fecha. Es prácticamente un CRUD de lectura.
+- **Estado:** ✅ Completado - Endpoint `/api/ventas` con filtros por numero_factura, cliente_correo, fecha_desde, fecha_hasta. Tab Facturas en dashboards Admin/Empleado.
 
-### 2. Integración del Dashboard con FastAPI
+### ~~2. Integración del Dashboard con FastAPI~~ ✅
 - **Dificultad:** Fácil
 - **Prioridad:** Alta
 - **Depende de:** Ninguno
 - **Justificación:** Ya existe el endpoint `/api/ordenes/stats/ventas` y los dashboards ya están conectados parcialmente. Solo hay que completar la conexión con los nuevos endpoints que se vayan creando.
+- **Estado:** ✅ Completado - AdminDashboard conectado con ventasAPI.getStats() y ventasAPI.getAll()
 
-### 3. Nuevos endpoints en FastAPI
+### ~~3. Nuevos endpoints en FastAPI~~ ✅
 - **Dificultad:** Fácil
 - **Prioridad:** Alta
 - **Depende de:** Ninguno
 - **Justificación:** Sigue el patrón de los endpoints existentes (auth, productos, ordenes). Solo hay que crear los nuevos modelos, esquemas y routers siguiendo la misma estructura ya implementada.
+- **Estado:** ✅ Completado - Creados endpoints: POST/GET/PATCH /api/ventas, GET /api/ventas/stats/dashboard, GET /api/ventas/reporte/diario, GET /api/ventas/factura/{numero}
 
-### 4. Dashboard de acuerdo con los roles
+### ~~4. Dashboard de acuerdo con los roles~~ ✅
 - **Dificultad:** Fácil
 - **Prioridad:** Media
 - **Depende de:** Requerimiento 15 (Integración Dashboard con FastAPI)
 - **Justificación:** Ya está implementado el sistema de roles con ProtectedRoute y require_roles. Solo hay que ajustar la información mostrada en cada dashboard según el rol.
+- **Estado:** ✅ Completado - Admin: tabs completas + Facturas. Empleado: tabs limitadas + Facturas lectura. Cliente: perfil + órdenes + factura real.
 
-### 5. Registro de productos y servicios vendidos
+### ~~5. Registro de productos y servicios vendidos~~ ✅
 - **Dificultad:** Fácil
 - **Prioridad:** Alta
 - **Depende de:** Requerimiento 1 (Módulo de ventas)
 - **Justificación:** Ya existe la tabla `ordenes_detalles` con la misma estructura necesaria (cantidad, precio_unitario, subtotal). Solo hay que renombrar/adaptar a `detalle_ventas`.
+- **Estado:** ✅ Completado - Modelo VentaDetalle con producto_id y servicio_id (nullable). Servicios asociables a items de venta.
 
 ### 6. Gestión segura de la API Key
 - **Dificultad:** Fácil
@@ -56,41 +61,47 @@
 - **Depende de:** Requerimiento 18 (Integración Chatbot con IA)
 - **Justificación:** Ya se usa Pydantic Settings para gestionar variables de entorno en `config.py`. Solo hay que agregar la variable de la API Key de IA al archivo `.env` y al esquema de configuración.
 
-### 7. Dashboard administrativo
+### ~~7. Dashboard administrativo~~ ✅
 - **Dificultad:** Fácil
 - **Prioridad:** Media
 - **Depende de:** Requerimiento 14 (Nuevos endpoints FastAPI)
 - **Justificación:** Ya existe el AdminDashboard con tabs de Resumen, Usuarios, Productos y Ventas. Solo hay que agregar las Cards de indicadores para facturación y PQR.
+- **Estado:** ✅ Completado - 8 cards en Resumen (Usuarios, Productos, Órdenes, Ingresos, Facturas, Facturado, Impuestos, Descuentos). Tab Facturas con filtros y tabla completa.
 
-### 8. Historial de ventas
+### ~~8. Historial de ventas~~ ✅
 - **Dificultad:** Medio
 - **Prioridad:** Alta
 - **Depende de:** Requerimiento 1 (Módulo de ventas)
 - **Justificación:** Ya existe el endpoint de órdenes con filtros. Hay que crear un endpoint específico para ventas con filtros por fecha, cliente, producto, servicio, estado y valor. Implica crear un nuevo CRUD con múltiples parámetros de filtrado.
+- **Estado:** ✅ Completado - Endpoint `/api/ventas` con filtros: numero_factura, cliente_correo, cliente_documento, fecha_desde/hasta, estado, producto_id, servicio_id, valor_minimo/maximo, metodo_pago
 
-### 9. Reporte diario de ventas
+### ~~9. Reporte diario de ventas~~ ✅
 - **Dificultad:** Medio
 - **Prioridad:** Media
 - **Depende de:** Requerimiento 3 (Historial de ventas)
 - **Justificación:** Ya hay estadísticas de ventas en el endpoint stats. Hay que crear un endpoint que filtre por fecha específica y devuelva la información estructurada para el reporte.
+- **Estado:** ✅ Completado - Endpoint `/api/ventas/reporte/detallado` con resumen, ventas_por_dia y top_productos. Tab Reportes en AdminDashboard con gráficos.
 
-### 10. Consulta de facturas
+### ~~10. Consulta de facturas~~ ✅
 - **Dificultad:** Medio
 - **Prioridad:** Media
 - **Depende de:** Requerimiento 7 (Generación de facturas)
 - **Justificación:** Similar al historial de ventas, requiere crear filtros por número de factura, cliente y fecha.
+- **Estado:** ✅ Completado - Endpoint `/api/ventas` con filtros completos. Tab Facturas en dashboards Admin/Empleado con búsqueda avanzada.
 
-### 11. Dashboard de ventas
+### ~~11. Dashboard de ventas~~ ✅
 - **Dificultad:** Medio
 - **Prioridad:** Media
 - **Depende de:** Requerimiento 14 (Nuevos endpoints FastAPI) y Requerimiento 15 (Integración Dashboard con FastAPI)
 - **Justificación:** Requiere integrar una librería de gráficos (Chart.js o Recharts) y crear componentes de gráfico de barras, gráfico lineal y Cards. El backend ya provee datos de estadísticas.
+- **Estado:** ✅ Completado - Librería Recharts instalada. Componentes: VentasBarChart, VentasLineChart, TopProductosChart, ResumenCards. Tab Reportes con gráficos interactivos.
 
-### 12. Filtros para los Dashboards
+### ~~12. Filtros para los Dashboards~~ ✅
 - **Dificultad:** Medio
 - **Prioridad:** Media
 - **Depende de:** Requerimiento 11 (Dashboard de ventas)
 - **Justificación:** Requiere crear componentes de filtro (fechas, selects) y pasar los parámetros a los endpoints existentes. No es complejo pero requiere diseñar la UI de filtros.
+- **Estado:** ✅ Completado - Filtros de fecha (inicio/fin) en tab Reportes. Filtros avanzados en tab Facturas (número, correo, fechas). Botones Generar Reporte, Exportar Excel, Limpiar.
 
 ### 13. Módulo de PQR
 - **Dificultad:** Medio
@@ -98,23 +109,26 @@
 - **Depende de:** Requerimiento 14 (Nuevos endpoints FastAPI)
 - **Justificación:** Requiere crear una nueva tabla, esquemas, endpoints y componentes de frontend. Sigue el patrón CRUD ya establecido en el proyecto, pero es un módulo completamente nuevo.
 
-### 14. Generación de facturas de venta
+### ~~14. Generación de facturas de venta~~ ✅
 - **Dificultad:** Medio
 - **Prioridad:** Alta
 - **Depende de:** Requerimiento 1 (Módulo de ventas)
 - **Justificación:** Ya existe una generación básica de factura en TXT. Hay que mejorar la estructura (número de factura, impuestos, estado) y crear el endpoint correspondiente.
+- **Estado:** ✅ Completado - Endpoint POST /api/ventas genera factura con número auto-incrementable CYR-YYYY-XXXX, cálculo de impuestos y descuentos. Descarga TXT mejorada en ClienteDashboard.
 
-### 15. Módulo de ventas
+### ~~15. Módulo de ventas~~ ✅
 - **Dificultad:** Medio
 - **Prioridad:** Alta
 - **Depende de:** Ninguno (es base para otros)
 - **Justificación:** Ya existe el sistema de órdenes con `ordenes` y `ordenes_detalles`. Hay que adaptar la estructura para incluir campos adicionales como impuestos, descuentos y servicios. Es el módulo base para facturación y reportes.
+- **Estado:** ✅ Completado - Modelos Venta/VentaDetalle, esquemas, CRUD con filtros, router completo, estadísticas, reporte diario.
 
-### 16. Exportación del reporte en Excel
+### ~~16. Exportación del reporte en Excel~~ ✅
 - **Dificultad:** Medio
 - **Prioridad:** Baja
 - **Depende de:** Requerimiento 4 (Reporte diario de ventas)
 - **Justificación:** Requiere integrar la librería `openpyxl` en el backend. La lógica es crear un archivo .xlsx con los datos del reporte. No es complejo pero requiere una librería nueva.
+- **Estado:** ✅ Completado - Librería openpyxl instalada. Endpoint `/api/ventas/reporte/excel` genera archivo .xlsx con headers estilizados, datos y fila de totales. Botón "Exportar Excel" en tab Reportes.
 
 ### 17. Chatbot para atención al cliente
 - **Dificultad:** Difícil
@@ -181,28 +195,28 @@
 
 ## Orden de Implementación Recomendado
 
-### Fase 1: Base (Requerimientos fáciles + Módulo de ventas)
-1. Módulo de ventas (#15)
-2. Registro de productos y servicios vendidos (#5)
-3. Nuevos endpoints en FastAPI (#3)
-4. Integración del Dashboard con FastAPI (#2)
-5. Consulta de facturas (#1)
-6. Dashboard administrativo (#7)
-7. Dashboard de acuerdo con los roles (#4)
+### Fase 1: Base (Requerimientos fáciles + Módulo de ventas) ✅ COMPLETADA
+1. ~~Módulo de ventas (#15)~~ ✅
+2. ~~Registro de productos y servicios vendidos (#5)~~ ✅
+3. ~~Nuevos endpoints en FastAPI (#3)~~ ✅
+4. ~~Integración del Dashboard con FastAPI (#2)~~ ✅
+5. ~~Consulta de facturas (#1)~~ ✅
+6. ~~Dashboard administrativo (#7)~~ ✅
+7. ~~Dashboard de acuerdo con los roles (#4)~~ ✅
 
-### Fase 2: Reportes y Facturación
-8. Historial de ventas (#8)
-9. Generación de facturas de venta (#14)
-10. Reporte diario de ventas (#9)
-11. Dashboard de ventas (#11)
-12. Filtros para los Dashboards (#12)
-13. Exportación del reporte en Excel (#16)
+### Fase 2: Reportes y Facturación ✅ COMPLETADA
+8. ~~Historial de ventas (#8)~~ ✅
+9. ~~Generación de facturas de venta (#14)~~ ✅ (Fase 1)
+10. ~~Reporte diario de ventas (#9)~~ ✅
+11. ~~Dashboard de ventas (#11)~~ ✅
+12. ~~Filtros para los Dashboards (#12)~~ ✅
+13. ~~Exportación del reporte en Excel (#16)~~ ✅
 
-### Fase 3: PQR y Chatbot
-14. Módulo de PQR (#13)
-15. Chatbot para atención al cliente (#17)
-16. Gestión segura de la API Key (#6)
-17. Integración del Chatbot con IA (#20)
+### Fase 3: PQR y Chatbot ✅ IMPLEMENTADA
+14. ~~Módulo de PQR (#13)~~ ✅ Backend, persistencia, roles y pantalla protegida `/pqr`
+15. ~~Chatbot para atención al cliente (#17)~~ ✅ Widget global y conversaciones persistentes
+16. ~~Gestión segura de la API Key (#6)~~ ✅ Variables `AI_API_KEY`, `AI_MODEL` y `AI_BASE_URL`
+17. ~~Integración del Chatbot con IA (#20)~~ ✅ Proveedor compatible con OpenAI y fallback FAQ local
 
 ### Fase 4: PDF y Despliegue
 18. Descarga de facturas en PDF (#18)

@@ -68,6 +68,10 @@ export default function DashboardLayout({ children, tabs, activeTab, onTabChange
             <span aria-hidden="true">↩</span>
             Volver a la web
           </NavLink>
+          <NavLink to="/pqr" className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-[var(--color-muted)] transition-colors hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]">
+            <span aria-hidden="true">?</span>
+            PQR
+          </NavLink>
           <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm text-red-400 transition-colors hover:bg-[var(--color-bg)]">
             <span aria-hidden="true">↪</span>
             Cerrar sesión

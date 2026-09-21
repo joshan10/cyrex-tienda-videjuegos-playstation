@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     stripe_currency_default: str = "usd"
 
+    # Chatbot configuration. The key is read only from the environment.
+    ai_api_key: str = ""
+    ai_model: str = "gemini-3.6-flash"
+    ai_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", extra="ignore")
 
     @property

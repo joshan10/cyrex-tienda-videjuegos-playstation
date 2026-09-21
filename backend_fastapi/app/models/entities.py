@@ -157,3 +157,44 @@ class VentaDetalle(Base):
 
     venta: Mapped["Venta"] = relationship("Venta", back_populates="detalles")
     producto: Mapped["Producto"] = relationship("Producto")
+
+
+class PQR(Base):
+    __tablename__ = "pqr"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), nullable=False, index=True)
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False)
+    asunto: Mapped[str] = mapped_column(String(200), nullable=False)
+    descripcion: Mapped[str] = mapped_column(Text, nullable=False)
+    estado: Mapped[str] = mapped_column(String(20), default="pendiente", nullable=False, index=True)
+    respuesta: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    fecha_respuesta: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    usuario: Mapped["Usuario"] = relationship("Usuario")
+
+
+class ConversacionChat(Base):
+    __tablename__ = "conversaciones_chat"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    mensajes: Mapped[list["MensajeChat"]] = relationship(
+        "MensajeChat", back_populates="conversacion", cascade="all, delete-orphan"
+    )
+
+
+class MensajeChat(Base):
+    __tablename__ = "mensajes_chat"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    conversacion_id: Mapped[int] = mapped_column(ForeignKey("conversaciones_chat.id"), nullable=False, index=True)
+    rol: Mapped[str] = mapped_column(String(20), nullable=False)
+    contenido: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    conversacion: Mapped["ConversacionChat"] = relationship("ConversacionChat", back_populates="mensajes")
