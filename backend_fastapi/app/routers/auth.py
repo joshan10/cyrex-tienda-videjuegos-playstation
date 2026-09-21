@@ -85,6 +85,16 @@ def verify_email(data: VerifyEmail, db: Session = Depends(get_db)):
         raise CuentaInactiva()
 
     token_value = str(uuid.uuid4())
+    existing = db.scalar(
+        select(EmailVerificationToken).where(
+            EmailVerificationToken.correo == user.correo,
+            EmailVerificationToken.used == False,
+        )
+    )
+    if existing:
+        db.delete(existing)
+        db.commit()
+
     verification_token = EmailVerificationToken(
         correo=user.correo,
         token=token_value,
