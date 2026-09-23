@@ -7,6 +7,13 @@ from app.services.cloudinary_service import borrar_imagen, subir_imagen
 
 router = APIRouter(prefix="/archivos", tags=["archivos"])
 ALLOWED = {"jpeg", "jpg", "png", "webp", "gif"}
+CONTENT_TYPES = {
+    "jpg": {"image/jpeg", "image/jpg"},
+    "jpeg": {"image/jpeg", "image/jpg"},
+    "png": {"image/png"},
+    "webp": {"image/webp"},
+    "gif": {"image/gif"},
+}
 
 
 @router.post(
@@ -23,8 +30,11 @@ async def upload_image(
     imagen: UploadFile = File(...),
 ):
     extension = Path(imagen.filename or "").suffix.lower().lstrip(".")
-    if extension not in ALLOWED or not (imagen.content_type or "").lower().endswith(extension):
+    content_type = (imagen.content_type or "").lower()
+    if extension not in ALLOWED:
         raise HTTPException(400, "Error: Solo se permiten imágenes (jpeg, jpg, png, webp, gif)")
+    if content_type and content_type not in CONTENT_TYPES[extension] and not content_type.startswith("image/"):
+        raise HTTPException(400, "Error: El archivo no parece una imagen válida.")
     content = await imagen.read()
     if len(content) > 5 * 1024 * 1024:
         raise HTTPException(413, "El archivo no puede superar 5 MB.")
