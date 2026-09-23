@@ -1,8 +1,12 @@
+import asyncio
+import logging
 from collections.abc import Iterable
 
 import httpx
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 FAQ_RESPONSES = (
@@ -39,6 +43,9 @@ def _api_messages(history: Iterable[dict[str, str]], message: str, catalog_conte
     ]
 
 
+RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
+
+
 async def generate_response(
     history: Iterable[dict[str, str]], message: str, catalog_context: str = ""
 ) -> tuple[str, str]:
@@ -48,13 +55,28 @@ async def generate_response(
     url = f"{settings.ai_base_url.rstrip('/')}/chat/completions"
     payload = {"model": settings.ai_model, "messages": _api_messages(history, message, catalog_context), "temperature": 0.3}
     headers = {"Authorization": f"Bearer {settings.ai_api_key}"}
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"].strip()
-            if content:
-                return content, "ia"
-    except (httpx.HTTPError, KeyError, IndexError, TypeError):
-        pass
+
+    last_error: Exception | None = None
+    timeout = httpx.Timeout(60.0, connect=15.0)
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(url, json=payload, headers=headers)
+                if response.status_code in RETRYABLE_STATUS:
+                    last_error = httpx.HTTPStatusError(
+                        f"HTTP {response.status_code}", request=response.request, response=response
+                    )
+                    await asyncio.sleep(1.5 * (attempt + 1))
+                    continue
+                response.raise_for_status()
+                content = response.json()["choices"][0]["message"]["content"].strip()
+                if content:
+                    return content, "ia"
+        except httpx.TimeoutException:
+            last_error = httpx.ReadTimeout("La API de IA tardó demasiado en responder.", request=None)
+        except (httpx.HTTPError, KeyError, IndexError, TypeError) as exc:
+            last_error = exc
+        await asyncio.sleep(1.5 * (attempt + 1))
+
+    logger.warning("Chatbot IA no disponible, usando fallback FAQ: %s", last_error)
     return faq_response(message), "faq_fallback"
