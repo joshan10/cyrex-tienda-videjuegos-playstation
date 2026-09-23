@@ -59,9 +59,10 @@ CREATE TABLE productos (
   precio        DECIMAL(10,2) NOT NULL,
   stock         INT DEFAULT 0,
   imagen_url    VARCHAR(500) DEFAULT NULL,
+  imagen_public_id VARCHAR(255) DEFAULT NULL,
   plataforma    VARCHAR(50)  DEFAULT 'PlayStation',
   categoria_id  INT DEFAULT NULL,
-  estado        VARCHAR(20) DEFAULT 'activo',
+  estado        VARCHAR(20)  DEFAULT 'activo',
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

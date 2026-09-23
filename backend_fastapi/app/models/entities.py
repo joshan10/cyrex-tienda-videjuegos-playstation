@@ -32,6 +32,7 @@ class Producto(Base):
     precio: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     stock: Mapped[int] = mapped_column(Integer, default=0)
     imagen_url: Mapped[str | None] = mapped_column(String(500))
+    imagen_public_id: Mapped[str | None] = mapped_column(String(255))
     plataforma: Mapped[str | None] = mapped_column(String(50))
     categoria_id: Mapped[int | None] = mapped_column(ForeignKey("categorias.id"))
     estado: Mapped[str] = mapped_column(String(20), default="activo")

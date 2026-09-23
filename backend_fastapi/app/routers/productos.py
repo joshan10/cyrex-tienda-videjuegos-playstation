@@ -10,6 +10,7 @@ from app.exceptions import ConflictoNegocio
 from app.models.entities import Producto
 from app.pagination import Paginacion, get_paginacion, paginate_query
 from app.schemas.common import CambiarEstado, ProductoEntrada, ProductoUpdate
+from app.services.cloudinary_service import borrar_imagen
 
 router = APIRouter(
     prefix="/productos",
@@ -126,6 +127,9 @@ def remove(
     _: dict = Depends(require_roles("Administrador")),
     db: Session = Depends(get_db),
 ):
+    public_id = product.imagen_public_id
     db.delete(product)
     db.commit()
+    if public_id:
+        borrar_imagen(public_id)
     return Response(status_code=204)

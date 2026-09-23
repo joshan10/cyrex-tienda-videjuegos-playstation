@@ -154,29 +154,39 @@ export default function AdminDashboard() {
     e.preventDefault();
     try {
       let finalImageUrl = productForm.imagen_url;
+      let finalImagePublicId = editingProduct?.imagen_public_id || null;
+      const previousPublicId = editingProduct?.imagen_public_id || null;
 
       // Subir imagen si se seleccionó un archivo nuevo
       if (imageFile) {
         const uploadRes = await uploadAPI.uploadImage(imageFile);
         finalImageUrl = uploadRes.url;
+        finalImagePublicId = uploadRes.public_id;
       }
 
       const data = {
         ...productForm,
         imagen_url: finalImageUrl,
+        imagen_public_id: finalImagePublicId,
         precio: parseFloat(productForm.precio),
         stock: parseInt(productForm.stock) || 0
       };
 
       if (editingProduct) {
         await productosAPI.update(editingProduct.id, data);
+        // Borrar la imagen anterior de Cloudinary solo si se reemplazó
+        if (imageFile && previousPublicId && previousPublicId !== finalImagePublicId) {
+          try { await uploadAPI.deleteImage(previousPublicId); } catch { /* best effort */ }
+        }
       } else {
         await productosAPI.create(data);
       }
       setShowProductModal(false);
+      setImageFile(null);
       loadData();
     } catch (err) {
       console.error(err);
+      alert(err?.detail || err?.error || 'Error al guardar el producto');
     }
   };
 
@@ -279,8 +289,8 @@ export default function AdminDashboard() {
     if (!url) return '';
     if (url.startsWith('http')) return url;
     if (url.startsWith('/uploads')) return `${API_URL}${url}`;
-    // Fallback para seed data anterior
-    return `https://via.placeholder.com/300x400/171b24/c5a46d?text=Cyrex+Game`;
+    if (url.startsWith('/')) return url;
+    return `/img/${url}`;
   };
 
   if (loading) {

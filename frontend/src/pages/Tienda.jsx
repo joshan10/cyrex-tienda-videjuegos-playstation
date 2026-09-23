@@ -41,7 +41,8 @@ export default function Tienda() {
     if (!url) return '';
     if (url.startsWith('http')) return url;
     if (url.startsWith('/uploads')) return `${API_URL}${url}`;
-    return `https://via.placeholder.com/300x400/171b24/c5a46d?text=Cyrex+Game`;
+    if (url.startsWith('/')) return url;
+    return `/img/${url}`;
   };
 
   const formatPrice = (p) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(p);

@@ -1,21 +1,21 @@
 from pathlib import Path
-from secrets import token_hex
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.dependencies import require_roles
+from app.services.cloudinary_service import borrar_imagen, subir_imagen
 
 router = APIRouter(prefix="/archivos", tags=["archivos"])
-UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
 ALLOWED = {"jpeg", "jpg", "png", "webp", "gif"}
 
 
 @router.post(
     "",
-    summary="Subir imagen al servidor",
+    summary="Subir imagen a Cloudinary",
     responses={
         400: {"description": "Formato no permitido"},
         413: {"description": "Archivo demasiado grande"},
+        503: {"description": "Cloudinary no configurado"},
     },
 )
 async def upload_image(
@@ -28,7 +28,23 @@ async def upload_image(
     content = await imagen.read()
     if len(content) > 5 * 1024 * 1024:
         raise HTTPException(413, "El archivo no puede superar 5 MB.")
-    UPLOAD_DIR.mkdir(exist_ok=True)
-    filename = f"{__import__('time').time_ns()}-{token_hex(4)}.{extension}"
-    (UPLOAD_DIR / filename).write_bytes(content)
-    return {"url": f"/uploads/{filename}"}
+    return subir_imagen(content)
+
+
+@router.delete(
+    "",
+    summary="Eliminar imagen de Cloudinary",
+    responses={
+        200: {"description": "Imagen eliminada (o no existía)"},
+        400: {"description": "public_id requerido"},
+        503: {"description": "Cloudinary no configurado"},
+    },
+)
+def delete_image(
+    public_id: str,
+    _: dict = Depends(require_roles("Administrador")),
+):
+    if not public_id.strip():
+        raise HTTPException(400, "public_id es requerido.")
+    eliminada = borrar_imagen(public_id)
+    return {"eliminada": eliminada, "public_id": public_id}

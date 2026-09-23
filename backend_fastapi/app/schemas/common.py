@@ -130,6 +130,7 @@ class ProductoEntrada(APIModel):
     descripcion: str | None = None
     stock: int = Field(default=0, ge=0)
     imagen_url: str | None = None
+    imagen_public_id: str | None = None
     plataforma: str = "PlayStation"
     categoria_id: int | None = Field(default=None, ge=1)
 
@@ -157,6 +158,7 @@ class ProductoUpdate(APIModel):
     precio: float | None = Field(default=None, ge=0)
     stock: int | None = Field(default=None, ge=0)
     imagen_url: str | None = None
+    imagen_public_id: str | None = None
     plataforma: str | None = None
     categoria_id: int | None = None
     estado: str | None = None

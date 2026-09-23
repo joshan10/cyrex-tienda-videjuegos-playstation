@@ -35,7 +35,7 @@ export const uploadAPI = {
     const formData = new FormData();
     formData.append('imagen', file);
 
-    const response = await fetch(`${API_URL}/upload`, {
+    const response = await fetch(`${API_URL}/archivos`, {
       method: 'POST',
       headers: {
         ...(token && { Authorization: `Bearer ${token}` })
@@ -46,7 +46,12 @@ export const uploadAPI = {
     const data = await response.json();
     if (!response.ok) throw { status: response.status, ...data };
     return data;
-  }
+  },
+
+  deleteImage: (publicId) =>
+    request(`/archivos?public_id=${encodeURIComponent(publicId)}`, {
+      method: 'DELETE'
+    })
 };
 
 // =====================================================
