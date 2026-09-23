@@ -46,6 +46,28 @@ class RegistroUsuario(APIModel):
     )
 
 
+class ActualizacionPerfil(APIModel):
+    nombre: str | None = Field(default=None, min_length=2, max_length=100)
+    apellido: str | None = Field(default=None, min_length=2, max_length=100)
+    direccion: str | None = Field(default=None, min_length=6, max_length=255)
+    telefono: str | None = Field(default=None, pattern=r"^\+?\d{7,15}$")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        extra="ignore",
+        json_schema_extra={
+            "examples": [
+                {
+                    "nombre": "Juan",
+                    "apellido": "Pérez",
+                    "direccion": "Carrera 1 # 2-34, Bogotá",
+                    "telefono": "3001234567",
+                }
+            ]
+        },
+    )
+
+
 class VerifyEmail(APIModel):
     correo: EmailStr
 

@@ -80,3 +80,63 @@ def test_usuario_requiere_admin(client, customer_user):
     customer_headers = login_headers(client, customer_user.correo, "Cliente1234!")
     response = client.get("/api/usuarios", headers=customer_headers)
     assert response.status_code == 403
+
+
+def test_cliente_actualiza_su_propio_perfil(client, customer_user):
+    headers = login_headers(client, customer_user.correo, "Cliente1234!")
+    response = client.put(
+        "/api/auth/me",
+        headers=headers,
+        json={
+            "nombre": "Cliente Nuevo",
+            "apellido": "Apellido Nuevo",
+            "direccion": "Carrera 1 # 2-34, Bogota",
+            "telefono": "3112223344",
+        },
+    )
+    assert response.status_code == 200
+    user = response.json()["user"]
+    assert user["nombre"] == "Cliente Nuevo"
+    assert user["direccion"] == "Carrera 1 # 2-34, Bogota"
+    assert user["telefono"] == "3112223344"
+
+    perfil = client.get("/api/auth/me", headers=headers)
+    assert perfil.status_code == 200
+    assert perfil.json()["user"]["nombre"] == "Cliente Nuevo"
+
+
+def test_empleado_actualiza_su_propio_perfil(client, employee_user):
+    headers = login_headers(client, employee_user.correo, "Empleado1234!")
+    response = client.put(
+        "/api/auth/me",
+        headers=headers,
+        json={"direccion": "Calle Empleado 789", "telefono": "3223334455"},
+    )
+    assert response.status_code == 200
+    user = response.json()["user"]
+    assert user["direccion"] == "Calle Empleado 789"
+    assert user["telefono"] == "3223334455"
+    assert user["rol"] == "Empleado"
+
+
+def test_perfil_propio_no_permite_cambiar_rol_ni_estado(client, customer_user):
+    headers = login_headers(client, customer_user.correo, "Cliente1234!")
+    response = client.put(
+        "/api/auth/me",
+        headers=headers,
+        json={"nombre": "Sin Privilegios", "rol_id": 1, "estado": "inactivo"},
+    )
+    assert response.status_code == 200
+    user = response.json()["user"]
+    assert user["rol"] == "Cliente"
+    assert user["estado"] == "activo"
+
+
+def test_cliente_no_puede_modificar_usuarios_por_id(client, customer_user):
+    headers = login_headers(client, customer_user.correo, "Cliente1234!")
+    response = client.put(
+        f"/api/usuarios/{customer_user.id}",
+        headers=headers,
+        json={"nombre": "Hackeado"},
+    )
+    assert response.status_code == 403

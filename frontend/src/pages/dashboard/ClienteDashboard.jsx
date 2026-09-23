@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { ordenesAPI, usuariosAPI, ventasAPI } from '../../services/api';
+import { authAPI, ordenesAPI, ventasAPI } from '../../services/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -65,7 +65,7 @@ export default function ClienteDashboard() {
 
   const handleSaveProfile = async () => {
     try {
-      await usuariosAPI.update(user.id, profileForm);
+      await authAPI.updateProfile(profileForm);
       setEditingProfile(false);
       alert('Perfil actualizado exitosamente');
       window.location.reload();

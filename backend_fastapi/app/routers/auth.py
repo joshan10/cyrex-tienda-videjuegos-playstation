@@ -7,14 +7,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.sanitization import detect_sql_injection, sanitize_email, validate_and_sanitize_input
+from app.core.sanitization import detect_sql_injection, sanitize_email, sanitize_string, validate_and_sanitize_input
 from app.core.security import create_token, hash_password, verify_password
 from app.crud.resources import permissions, user_view
 from app.dependencies import current_user
 from app.exceptions import ConflictoNegocio, CredencialesInvalidas, CuentaInactiva, RecursoNoEncontrado
 from app.models.entities import EmailVerificationToken, PasswordResetToken, Usuario
 from app.models.roles import Rol
-from app.schemas.common import ForgotPassword, Login, LoginPassword, RegistroUsuario, ResetPassword, VerifyEmail
+from app.schemas.common import ActualizacionPerfil, ForgotPassword, Login, LoginPassword, RegistroUsuario, ResetPassword, VerifyEmail
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -55,16 +55,13 @@ def register(data: RegistroUsuario, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     role = db.scalar(select(Rol.nombre).where(Rol.id == user.rol_id))
+    view = user_view(db, user)
+    view.update({"rol": role, "permisos": permissions(db, user.rol_id)})
+    view.pop("rol_nombre", None)
     return {
         "message": "Usuario registrado exitosamente.",
         "token": token_for(db, user),
-        "user": {
-            "id": user.id,
-            "nombre": user.nombre,
-            "apellido": user.apellido,
-            "correo": user.correo,
-            "rol": role,
-        },
+        "user": view,
     }
 
 
@@ -164,6 +161,31 @@ def profile(user: dict = Depends(current_user), db: Session = Depends(get_db)):
     view = user_view(db, entity)
     view.update({"rol": view.pop("rol_nombre"), "permisos": permissions(db, entity.rol_id)})
     return {"user": view}
+
+
+@router.put(
+    "/me",
+    summary="Actualizar el perfil del usuario autenticado",
+    responses={200: {"description": "Perfil actualizado"}, 400: {"description": "Datos inválidos"}, 401: {"description": "No autenticado"}},
+)
+def update_profile(
+    data: ActualizacionPerfil,
+    user: dict = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    entity = db.get(Usuario, user["id"])
+    limits = {"nombre": 100, "apellido": 100, "direccion": 255, "telefono": 20}
+    for field, value in data.model_dump(exclude_unset=True).items():
+        if value is None:
+            continue
+        if field in {"nombre", "apellido"} and detect_sql_injection(value):
+            raise ConflictoNegocio("Entrada no válida.")
+        setattr(entity, field, sanitize_string(value, limits.get(field)))
+    db.commit()
+    db.refresh(entity)
+    view = user_view(db, entity)
+    view.update({"rol": view.pop("rol_nombre"), "permisos": permissions(db, entity.rol_id)})
+    return {"message": "Perfil actualizado exitosamente.", "user": view}
 
 
 @router.post(

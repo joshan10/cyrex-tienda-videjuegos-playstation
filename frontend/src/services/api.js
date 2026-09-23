@@ -73,6 +73,12 @@ export const authAPI = {
 
   getProfile: () => request('/auth/me'),
 
+  updateProfile: (data) =>
+    request('/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+
   forgotPassword: (correo) =>
     request('/auth/forgot-password', {
       method: 'POST',

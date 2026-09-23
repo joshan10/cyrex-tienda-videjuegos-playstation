@@ -124,6 +124,29 @@ def test_perfil_sin_token(client, db):
     assert response.status_code == 401
 
 
+def test_registro_devuelve_datos_completos_del_usuario(client, db):
+    setup_db(db)
+    response = client.post("/api/auth/register", json={
+        "nombre": "Nuevo",
+        "apellido": "Usuario",
+        "tipo_documento": "cc",
+        "numero_documento": "555555555",
+        "direccion": "Avenida Nueva 456",
+        "telefono": "3005556677",
+        "correo": "nuevo@test.com",
+        "password": "password123",
+    })
+    assert response.status_code == 201
+    user = response.json()["user"]
+    assert user["direccion"] == "Avenida Nueva 456"
+    assert user["telefono"] == "3005556677"
+    assert user["tipo_documento"] == "cc"
+    assert user["estado"] == "activo"
+    assert user["rol"] == "Cliente"
+    assert "permisos" in user
+    assert "password" not in user
+
+
 def test_login_token_expirado(client, db):
     setup_db(db)
     from datetime import datetime, timedelta, timezone
