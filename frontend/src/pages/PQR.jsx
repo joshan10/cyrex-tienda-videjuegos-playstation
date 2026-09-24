@@ -5,7 +5,7 @@ import { pqrAPI } from '../services/api';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import DashboardLayout from '../components/layout/DashboardLayout';
-import { LIMITS, filterMax, validateAsunto } from '../utils/validators';
+import { LIMITS, validateAsunto } from '../utils/validators';
 
 const tabsByRole = {
   Administrador: [
@@ -117,8 +117,11 @@ export default function PQR() {
               label="Asunto"
               value={form.asunto}
               onChange={(e) => {
-                e.target.value = filterMax(LIMITS.asunto.max)(e.target.value);
-                setForm({ ...form, asunto: e.target.value });
+                const max = e.target.maxLength;
+                let next = e.target.value;
+                if (max > 0 && next.length > max) next = next.slice(0, max);
+                e.target.value = next;
+                setForm({ ...form, asunto: next });
                 setFormError('');
               }}
               required
@@ -134,8 +137,11 @@ export default function PQR() {
                 maxLength={LIMITS.descripcionPqr.max}
                 value={form.descripcion}
                 onChange={(e) => {
-                  e.target.value = filterMax(LIMITS.descripcionPqr.max)(e.target.value);
-                  setForm({ ...form, descripcion: e.target.value });
+                  const max = e.target.maxLength;
+                  let next = e.target.value;
+                  if (max > 0 && next.length > max) next = next.slice(0, max);
+                  e.target.value = next;
+                  setForm({ ...form, descripcion: next });
                   setFormError('');
                 }}
                 required

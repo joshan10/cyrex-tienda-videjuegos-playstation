@@ -37,7 +37,13 @@ export default function Contacto() {
   );
 
   const handleChange = (event) => {
-    const { name, value } = event.target;
+    const { name } = event.target;
+    let value = event.target.value;
+    const max = event.target.maxLength;
+    if (max > 0 && value.length > max) {
+      value = value.slice(0, max);
+      event.target.value = value;
+    }
     setForm((prev) => ({ ...prev, [name]: value }));
     if (validators[name]) {
       setErrors((prev) => ({ ...prev, [name]: validators[name](value) }));

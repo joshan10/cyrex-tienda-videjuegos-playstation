@@ -122,11 +122,12 @@ export const filterAlpha = (value) => String(value || '').replace(/[^A-Za-zÁÉ�
 /** Deja solo dígitos. */
 export const filterDigits = (value) => String(value || '').replace(/\D/g, '');
 
-/** Deja solo dígitos y un + inicial opcional (teléfonos). */
-export const filterPhone = (value) => {
+/** Deja solo dígitos y un + inicial opcional (teléfonos). maxDigits = dígitos sin el +. */
+export const filterPhone = (value, maxDigits = LIMITS.telefono.max) => {
   const raw = String(value || '').replace(/[^\d+]/g, '');
   const plus = raw.startsWith('+') ? '+' : '';
-  return plus + raw.replace(/\+/g, '');
+  const digits = raw.replace(/\+/g, '').slice(0, maxDigits);
+  return plus + digits;
 };
 
 /** Deja solo dígitos y recorta a max. */

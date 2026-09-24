@@ -93,7 +93,13 @@ export default function TarjetaModal({ isOpen, onClose, onConfirm, initialData }
             <input
               type="text"
               value={formData.numero}
-              onChange={(e) => setFormData(prev => ({ ...prev, numero: formatCardNumber(e.target.value) }))}
+              onChange={(e) => {
+                const max = e.target.maxLength;
+                let next = formatCardNumber(e.target.value);
+                if (max > 0 && next.length > max) next = next.slice(0, max);
+                e.target.value = next;
+                setFormData(prev => ({ ...prev, numero: next }));
+              }}
               placeholder="1234 5678 9012 3456"
               maxLength={19}
               className={`w-full rounded-xl border px-4 py-3 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)] ${
@@ -110,7 +116,13 @@ export default function TarjetaModal({ isOpen, onClose, onConfirm, initialData }
             <input
               type="text"
               value={formData.nombre}
-              onChange={(e) => setFormData(prev => ({ ...prev, nombre: filterAlpha(e.target.value).slice(0, LIMITS.nombre.max).toUpperCase() }))}
+              onChange={(e) => {
+                const max = e.target.maxLength;
+                let next = filterAlpha(e.target.value).slice(0, LIMITS.nombre.max).toUpperCase();
+                if (max > 0 && next.length > max) next = next.slice(0, max);
+                e.target.value = next;
+                setFormData(prev => ({ ...prev, nombre: next }));
+              }}
               placeholder="JUAN PEREZ"
               maxLength={LIMITS.nombre.max}
               className={`w-full rounded-xl border px-4 py-3 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)] ${
@@ -128,7 +140,13 @@ export default function TarjetaModal({ isOpen, onClose, onConfirm, initialData }
               <input
                 type="text"
                 value={formData.fecha}
-                onChange={(e) => setFormData(prev => ({ ...prev, fecha: formatExpiry(e.target.value) }))}
+                onChange={(e) => {
+                  const max = e.target.maxLength;
+                  let next = formatExpiry(e.target.value);
+                  if (max > 0 && next.length > max) next = next.slice(0, max);
+                  e.target.value = next;
+                  setFormData(prev => ({ ...prev, fecha: next }));
+                }}
                 placeholder="MM/YY"
                 maxLength={5}
                 className={`w-full rounded-xl border px-4 py-3 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)] ${
@@ -146,7 +164,13 @@ export default function TarjetaModal({ isOpen, onClose, onConfirm, initialData }
                 <input
                   type={showCvv ? 'text' : 'password'}
                   value={formData.cvv}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cvv: e.target.value.replace(/[^0-9]/g, '') }))}
+                  onChange={(e) => {
+                    const max = e.target.maxLength;
+                    let next = e.target.value.replace(/[^0-9]/g, '');
+                    if (max > 0 && next.length > max) next = next.slice(0, max);
+                    e.target.value = next;
+                    setFormData(prev => ({ ...prev, cvv: next }));
+                  }}
                   placeholder="123"
                   maxLength={4}
                   className={`w-full rounded-xl border px-4 py-3 pr-11 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)] ${

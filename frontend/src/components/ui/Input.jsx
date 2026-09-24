@@ -8,18 +8,24 @@ export default function Input({
   className = '',
   filter,
   onChange,
+  maxLength,
   ...props
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === 'password';
   const inputType = isPassword && showPassword ? 'text' : type;
+  const max = maxLength != null && maxLength !== '' ? Number(maxLength) : null;
 
   const handleChange = (event) => {
+    let next = event.target.value;
     if (filter) {
-      const filtered = filter(event.target.value);
-      if (filtered !== event.target.value) {
-        event.target.value = filtered;
-      }
+      next = filter(next);
+    }
+    if (max != null && Number.isFinite(max) && next.length > max) {
+      next = next.slice(0, max);
+    }
+    if (next !== event.target.value) {
+      event.target.value = next;
     }
     onChange?.(event);
   };
@@ -35,6 +41,7 @@ export default function Input({
           type={inputType}
           className={`w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text)] outline-none transition-colors duration-200 placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] ${isPassword ? 'pr-11' : ''}`}
           onChange={handleChange}
+          maxLength={maxLength}
           {...props}
         />
         {isPassword && (

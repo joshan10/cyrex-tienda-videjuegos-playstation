@@ -173,7 +173,9 @@ export default function AdminDashboard() {
   };
 
   const handleUserField = (name, filter) => (e) => {
-    const value = filter ? filter(e.target.value) : e.target.value;
+    let value = filter ? filter(e.target.value) : e.target.value;
+    const max = e.target.maxLength;
+    if (max > 0 && value.length > max) value = value.slice(0, max);
     e.target.value = value;
     setUserForm((prev) => ({ ...prev, [name]: value }));
     setUserErrors((prev) => ({ ...prev, [name]: userValidators[name]?.(value) || '' }));
@@ -226,7 +228,9 @@ export default function AdminDashboard() {
   };
 
   const handleProductField = (name, filter) => (e) => {
-    const value = filter ? filter(e.target.value) : e.target.value;
+    let value = filter ? filter(e.target.value) : e.target.value;
+    const max = e.target.maxLength;
+    if (max > 0 && value.length > max) value = value.slice(0, max);
     e.target.value = value;
     setProductForm((prev) => ({ ...prev, [name]: value }));
     setProductErrors((prev) => ({ ...prev, [name]: productValidators[name]?.(value) || '' }));

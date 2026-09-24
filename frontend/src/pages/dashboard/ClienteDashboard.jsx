@@ -85,7 +85,9 @@ export default function ClienteDashboard() {
   };
 
   const handleProfileField = (name, filter) => (e) => {
-    const value = filter ? filter(e.target.value) : e.target.value;
+    let value = filter ? filter(e.target.value) : e.target.value;
+    const max = e.target.maxLength;
+    if (max > 0 && value.length > max) value = value.slice(0, max);
     e.target.value = value;
     setProfileForm((prev) => ({ ...prev, [name]: value }));
     setProfileErrors((prev) => ({ ...prev, [name]: profileValidators[name]?.(value) || '' }));
