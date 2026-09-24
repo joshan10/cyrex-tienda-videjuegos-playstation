@@ -4,6 +4,7 @@ import LayoutPrincipal from '../components/layout/LayoutPrincipal';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { authAPI } from '../services/api';
+import { LIMITS, filterMax } from '../utils/validators';
 
 export default function RestablecerContrasena() {
   const [searchParams] = useSearchParams();
@@ -18,7 +19,9 @@ export default function RestablecerContrasena() {
 
   const validate = (name, value, allValues) => {
     if (name === 'password') {
-      return value.length >= 8 ? '' : 'Mínimo 8 caracteres.';
+      if (value.length < LIMITS.password.min) return `Mínimo ${LIMITS.password.min} caracteres.`;
+      if (value.length > LIMITS.password.max) return `Máximo ${LIMITS.password.max} caracteres.`;
+      return '';
     }
     if (name === 'confirmPassword') {
       return value === allValues.password ? '' : 'Las contraseñas no coinciden.';
@@ -94,6 +97,9 @@ export default function RestablecerContrasena() {
                 onChange={handleChange}
                 error={errors.password}
                 placeholder="Mínimo 8 caracteres"
+                filter={filterMax(LIMITS.password.max)}
+                maxLength={LIMITS.password.max}
+                autoComplete="new-password"
               />
               <Input
                 name="confirmPassword"
@@ -103,6 +109,9 @@ export default function RestablecerContrasena() {
                 onChange={handleChange}
                 error={errors.confirmPassword}
                 placeholder="Repite tu nueva contraseña"
+                filter={filterMax(LIMITS.password.max)}
+                maxLength={LIMITS.password.max}
+                autoComplete="new-password"
               />
               <Button type="submit" className="mt-2 w-full" disabled={isLoading}>
                 {isLoading ? 'Actualizando...' : 'Actualizar Contraseña'}

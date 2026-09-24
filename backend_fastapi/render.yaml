@@ -39,3 +39,9 @@ services:
         value: "gemini-3.6-flash"
       - key: AI_BASE_URL
         value: "https://generativelanguage.googleapis.com/v1beta/openai"
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

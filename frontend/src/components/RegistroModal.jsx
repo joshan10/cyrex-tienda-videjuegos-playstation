@@ -4,6 +4,20 @@ import { useAuth } from '../context/AuthContext';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import Select from './ui/Select';
+import {
+  LIMITS,
+  filterAlpha,
+  filterDigits,
+  filterMax,
+  filterPhone,
+  validateApellido,
+  validateCorreo,
+  validateDireccion,
+  validateName,
+  validateNumeroDocumento,
+  validatePassword,
+  validateTelefono
+} from '../utils/validators';
 
 const typeOptions = [
   { value: '', label: 'Selecciona una opcion' },
@@ -24,10 +38,6 @@ const initialForm = {
   confirmPassword: ''
 };
 
-const validateEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-const validatePassword = (value) => /^(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,}$/.test(value);
-const validatePhone = (value) => /^\+?\d{7,15}$/.test(value);
-
 export default function RegistroModal({ isOpen, onClose }) {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
@@ -39,23 +49,14 @@ export default function RegistroModal({ isOpen, onClose }) {
 
   const validators = useMemo(
     () => ({
-      nombre: (value) =>
-        value.trim().length < 2 || value.trim().length > 100
-          ? 'El nombre debe tener entre 2 y 100 caracteres.'
-          : '',
-      apellido: (value) =>
-        value.trim().length < 2 || value.trim().length > 100
-          ? 'El apellido debe tener entre 2 y 100 caracteres.'
-          : '',
+      nombre: validateName,
+      apellido: validateApellido,
       tipoDocumento: (value) => (!value ? 'Selecciona un tipo de documento.' : ''),
-      numeroDocumento: (value) => (!/^\d{6,15}$/.test(value) ? 'Ingresa un numero de documento valido.' : ''),
-      direccion: (value) => (value.trim().length < 6 ? 'La direccion debe tener al menos 6 caracteres.' : ''),
-      telefono: (value) => (!validatePhone(value) ? 'Telefono invalido. Usa solo numeros con prefijo opcional +.' : ''),
-      correo: (value) => (!validateEmail(value) ? 'Correo electronico invalido.' : ''),
-      password: (value) =>
-        !validatePassword(value)
-          ? 'La contrasena debe tener 8+ caracteres, una mayuscula, un numero y un simbolo.'
-          : '',
+      numeroDocumento: validateNumeroDocumento,
+      direccion: validateDireccion,
+      telefono: validateTelefono,
+      correo: validateCorreo,
+      password: (value) => (!validatePassword(value) ? 'La contrasena debe tener 8+ caracteres, una mayuscula, un numero y un simbolo.' : ''),
       confirmPassword: (value) => (value !== form.password ? 'Las contrasenas no coinciden.' : '')
     }),
     [form.password]
@@ -148,8 +149,28 @@ export default function RegistroModal({ isOpen, onClose }) {
         )}
 
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit} noValidate>
-          <Input id="nombre" name="nombre" label="Nombre" value={form.nombre} onChange={handleChange} error={errors.nombre} />
-          <Input id="apellido" name="apellido" label="Apellido" value={form.apellido} onChange={handleChange} error={errors.apellido} />
+          <Input
+            id="nombre"
+            name="nombre"
+            label="Nombre"
+            value={form.nombre}
+            onChange={handleChange}
+            error={errors.nombre}
+            filter={(v) => filterAlpha(v).slice(0, LIMITS.nombre.max)}
+            maxLength={LIMITS.nombre.max}
+            autoComplete="given-name"
+          />
+          <Input
+            id="apellido"
+            name="apellido"
+            label="Apellido"
+            value={form.apellido}
+            onChange={handleChange}
+            error={errors.apellido}
+            filter={(v) => filterAlpha(v).slice(0, LIMITS.apellido.max)}
+            maxLength={LIMITS.apellido.max}
+            autoComplete="family-name"
+          />
           <Select
             id="tipoDocumento"
             name="tipoDocumento"
@@ -166,6 +187,9 @@ export default function RegistroModal({ isOpen, onClose }) {
             value={form.numeroDocumento}
             onChange={handleChange}
             error={errors.numeroDocumento}
+            filter={(v) => filterDigits(v).slice(0, LIMITS.numeroDocumento.max)}
+            maxLength={LIMITS.numeroDocumento.max}
+            inputMode="numeric"
           />
           <Input
             id="direccion"
@@ -175,9 +199,34 @@ export default function RegistroModal({ isOpen, onClose }) {
             onChange={handleChange}
             error={errors.direccion}
             className="md:col-span-2"
+            filter={filterMax(LIMITS.direccion.max)}
+            maxLength={LIMITS.direccion.max}
+            autoComplete="street-address"
           />
-          <Input id="telefono" name="telefono" label="Telefono" value={form.telefono} onChange={handleChange} error={errors.telefono} />
-          <Input id="correo" name="correo" type="email" label="Correo" value={form.correo} onChange={handleChange} error={errors.correo} />
+          <Input
+            id="telefono"
+            name="telefono"
+            label="Telefono"
+            value={form.telefono}
+            onChange={handleChange}
+            error={errors.telefono}
+            filter={filterPhone}
+            maxLength={16}
+            inputMode="tel"
+            placeholder="+573001234567"
+          />
+          <Input
+            id="correo"
+            name="correo"
+            type="email"
+            label="Correo"
+            value={form.correo}
+            onChange={handleChange}
+            error={errors.correo}
+            filter={filterMax(LIMITS.correo.max)}
+            maxLength={LIMITS.correo.max}
+            autoComplete="email"
+          />
           <Input
             id="password"
             name="password"
@@ -186,6 +235,9 @@ export default function RegistroModal({ isOpen, onClose }) {
             value={form.password}
             onChange={handleChange}
             error={errors.password}
+            filter={filterMax(LIMITS.password.max)}
+            maxLength={LIMITS.password.max}
+            autoComplete="new-password"
           />
           <Input
             id="confirmPassword"
@@ -195,6 +247,9 @@ export default function RegistroModal({ isOpen, onClose }) {
             value={form.confirmPassword}
             onChange={handleChange}
             error={errors.confirmPassword}
+            filter={filterMax(LIMITS.password.max)}
+            maxLength={LIMITS.password.max}
+            autoComplete="new-password"
           />
           <div className="mt-2 flex justify-end gap-3 md:col-span-2">
             <Button variant="secondary" onClick={onClose} type="button">

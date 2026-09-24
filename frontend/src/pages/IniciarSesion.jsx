@@ -1,12 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import RegistroModal from '../components/RegistroModal';
 import LayoutPrincipal from '../components/layout/LayoutPrincipal';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import { LIMITS, filterMax, validateEmail } from '../utils/validators';
 
-const validateEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const sanitizeInput = (value) => value.replace(/[<>'";\\]/g, '').trim();
 
 export default function IniciarSesion() {
@@ -170,6 +170,9 @@ export default function IniciarSesion() {
                   error={correoError}
                   placeholder="usuario@correo.com"
                   disabled={isLoading}
+                  filter={(v) => filterMax(LIMITS.correo.max)(sanitizeInput(v))}
+                  maxLength={LIMITS.correo.max}
+                  autoComplete="email"
                 />
               </div>
             ) : (
@@ -187,6 +190,9 @@ export default function IniciarSesion() {
                   error={passwordError}
                   placeholder="********"
                   disabled={isLoading}
+                  filter={filterMax(LIMITS.password.max)}
+                  maxLength={LIMITS.password.max}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"

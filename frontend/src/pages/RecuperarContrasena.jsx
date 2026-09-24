@@ -4,8 +4,7 @@ import LayoutPrincipal from '../components/layout/LayoutPrincipal';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { authAPI } from '../services/api';
-
-const validateEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+import { LIMITS, filterMax, validateEmail } from '../utils/validators';
 
 export default function RecuperarContrasena() {
   const [email, setEmail] = useState('');
@@ -15,7 +14,7 @@ export default function RecuperarContrasena() {
   const navigate = useNavigate();
 
   const handleChange = (event) => {
-    const value = event.target.value;
+    const value = filterMax(LIMITS.correo.max)(event.target.value);
     setEmail(value);
     setError(value && !validateEmail(value) ? 'Ingresa un correo valido.' : '');
     setApiError('');
@@ -66,6 +65,9 @@ export default function RecuperarContrasena() {
               error={error}
               type="email"
               placeholder="usuario@correo.com"
+              filter={filterMax(LIMITS.correo.max)}
+              maxLength={LIMITS.correo.max}
+              autoComplete="email"
             />
             <Button type="submit" className="mt-5 w-full" disabled={isLoading || !!error}>
               {isLoading ? 'Enviando...' : 'Enviar'}

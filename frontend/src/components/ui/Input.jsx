@@ -6,11 +6,23 @@ export default function Input({
   id,
   type = 'text',
   className = '',
+  filter,
+  onChange,
   ...props
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === 'password';
   const inputType = isPassword && showPassword ? 'text' : type;
+
+  const handleChange = (event) => {
+    if (filter) {
+      const filtered = filter(event.target.value);
+      if (filtered !== event.target.value) {
+        event.target.value = filtered;
+      }
+    }
+    onChange?.(event);
+  };
 
   return (
     <label className={`block ${className}`} htmlFor={id}>
@@ -22,6 +34,7 @@ export default function Input({
           id={id}
           type={inputType}
           className={`w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text)] outline-none transition-colors duration-200 placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] ${isPassword ? 'pr-11' : ''}`}
+          onChange={handleChange}
           {...props}
         />
         {isPassword && (

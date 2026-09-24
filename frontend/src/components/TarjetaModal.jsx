@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Button from './ui/Button';
+import { LIMITS, filterAlpha, isAlpha } from '../utils/validators';
 
 export default function TarjetaModal({ isOpen, onClose, onConfirm, initialData }) {
   const [formData, setFormData] = useState({
@@ -18,8 +19,10 @@ export default function TarjetaModal({ isOpen, onClose, onConfirm, initialData }
     if (!numeroSinEspacios || numeroSinEspacios.length < 13) {
       newErrors.numero = 'Número de tarjeta inválido (mínimo 13 dígitos)';
     }
-    if (!formData.nombre || formData.nombre.length < 2) {
-      newErrors.nombre = 'Nombre del titular inválido';
+    if (!formData.nombre || formData.nombre.trim().length < 2) {
+      newErrors.nombre = 'Nombre del titular inválido (mínimo 2 caracteres)';
+    } else if (!isAlpha(formData.nombre.trim())) {
+      newErrors.nombre = 'El nombre del titular solo puede contener letras y espacios.';
     }
     if (!formData.fecha) {
       newErrors.fecha = 'Fecha inválida';
@@ -107,8 +110,9 @@ export default function TarjetaModal({ isOpen, onClose, onConfirm, initialData }
             <input
               type="text"
               value={formData.nombre}
-              onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value.toUpperCase() }))}
-              placeholder="JUAN PÉREZ"
+              onChange={(e) => setFormData(prev => ({ ...prev, nombre: filterAlpha(e.target.value).slice(0, LIMITS.nombre.max).toUpperCase() }))}
+              placeholder="JUAN PEREZ"
+              maxLength={LIMITS.nombre.max}
               className={`w-full rounded-xl border px-4 py-3 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)] ${
                 errors.nombre ? 'border-red-500' : 'border-[var(--color-line)] bg-[var(--color-surface)]'
               }`}

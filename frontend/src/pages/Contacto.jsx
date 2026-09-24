@@ -3,6 +3,16 @@ import LayoutPrincipal from '../components/layout/LayoutPrincipal';
 import ScrollReveal from '../components/ScrollReveal';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import {
+  LIMITS,
+  filterAlpha,
+  filterMax,
+  filterPhone,
+  validateCorreo,
+  validateMensaje,
+  validateName,
+  validateTelefono
+} from '../utils/validators';
 
 const initialForm = {
   nombre: '',
@@ -11,9 +21,6 @@ const initialForm = {
   mensaje: ''
 };
 
-const validateEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-const validatePhone = (value) => /^\+?\d{7,15}$/.test(value);
-
 export default function Contacto() {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
@@ -21,10 +28,10 @@ export default function Contacto() {
 
   const validators = useMemo(
     () => ({
-      nombre: (value) => (!value.trim() ? 'El nombre es obligatorio.' : ''),
-      correo: (value) => (!validateEmail(value) ? 'Correo invalido.' : ''),
-      telefono: (value) => (!validatePhone(value) ? 'Telefono invalido.' : ''),
-      mensaje: (value) => (value.trim().length < 10 ? 'El mensaje debe tener al menos 10 caracteres.' : '')
+      nombre: validateName,
+      correo: validateCorreo,
+      telefono: validateTelefono,
+      mensaje: validateMensaje
     }),
     []
   );
@@ -71,9 +78,41 @@ export default function Contacto() {
               className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] p-7"
             >
               <div className="space-y-4">
-                <Input id="nombre" name="nombre" label="Nombre" value={form.nombre} onChange={handleChange} error={errors.nombre} />
-                <Input id="correo" name="correo" type="email" label="Correo" value={form.correo} onChange={handleChange} error={errors.correo} />
-                <Input id="telefono" name="telefono" label="Telefono" value={form.telefono} onChange={handleChange} error={errors.telefono} />
+                <Input
+                  id="nombre"
+                  name="nombre"
+                  label="Nombre"
+                  value={form.nombre}
+                  onChange={handleChange}
+                  error={errors.nombre}
+                  filter={(v) => filterAlpha(v).slice(0, LIMITS.nombre.max)}
+                  maxLength={LIMITS.nombre.max}
+                  autoComplete="name"
+                />
+                <Input
+                  id="correo"
+                  name="correo"
+                  type="email"
+                  label="Correo"
+                  value={form.correo}
+                  onChange={handleChange}
+                  error={errors.correo}
+                  filter={filterMax(LIMITS.correo.max)}
+                  maxLength={LIMITS.correo.max}
+                  autoComplete="email"
+                />
+                <Input
+                  id="telefono"
+                  name="telefono"
+                  label="Telefono"
+                  value={form.telefono}
+                  onChange={handleChange}
+                  error={errors.telefono}
+                  filter={filterPhone}
+                  maxLength={16}
+                  inputMode="tel"
+                  placeholder="+573001234567"
+                />
                 <label htmlFor="mensaje">
                   <span className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-muted)]">
                     Mensaje
@@ -82,10 +121,20 @@ export default function Contacto() {
                     id="mensaje"
                     name="mensaje"
                     value={form.mensaje}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      const next = e.target.value.slice(0, LIMITS.mensaje.max);
+                      e.target.value = next;
+                      handleChange(e);
+                    }}
                     rows={4}
+                    maxLength={LIMITS.mensaje.max}
+                    minLength={LIMITS.mensaje.min}
+                    placeholder={`Entre ${LIMITS.mensaje.min} y ${LIMITS.mensaje.max} caracteres`}
                     className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text)] outline-none transition-colors duration-200 focus:border-[var(--color-accent)]"
                   />
+                  <p className="mt-1 text-xs text-[var(--color-muted)]">
+                    {form.mensaje.length}/{LIMITS.mensaje.max}
+                  </p>
                   {errors.mensaje ? <p className="mt-2 text-xs text-red-400">{errors.mensaje}</p> : null}
                 </label>
               </div>

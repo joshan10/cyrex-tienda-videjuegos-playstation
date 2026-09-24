@@ -4,6 +4,17 @@ import { authAPI, productosAPI, ordenesAPI, ventasAPI } from '../../services/api
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import {
+  LIMITS,
+  filterAlpha,
+  filterMax,
+  filterPhone,
+  validateApellido,
+  validateDireccion,
+  validateName,
+  validateStock,
+  validateTelefono
+} from '../../utils/validators';
 
 const tabs = [
   { id: 'perfil', label: 'Mi Perfil' },
@@ -11,6 +22,13 @@ const tabs = [
   { id: 'ventas',    label: 'Órdenes' },
   { id: 'facturas',  label: 'Facturas' }
 ];
+
+const profileValidators = {
+  nombre: validateName,
+  apellido: validateApellido,
+  direccion: validateDireccion,
+  telefono: validateTelefono
+};
 
 export default function EmpleadoDashboard() {
   const { user } = useAuth();
@@ -39,6 +57,8 @@ export default function EmpleadoDashboard() {
     direccion: '',
     telefono: ''
   });
+  const [profileErrors, setProfileErrors] = useState({});
+  const [productFormError, setProductFormError] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -72,19 +92,34 @@ export default function EmpleadoDashboard() {
       direccion: user?.direccion || '',
       telefono: user?.telefono || ''
     });
+    setProfileErrors({});
     setEditingProfile(true);
   };
 
+  const handleProfileField = (name, filter) => (e) => {
+    const value = filter ? filter(e.target.value) : e.target.value;
+    e.target.value = value;
+    setProfileForm((prev) => ({ ...prev, [name]: value }));
+    setProfileErrors((prev) => ({ ...prev, [name]: profileValidators[name]?.(value) || '' }));
+  };
+
   const handleSaveProfile = async () => {
+    const nextErrors = {};
+    Object.entries(profileValidators).forEach(([key, validate]) => {
+      const msg = validate(profileForm[key]);
+      if (msg) nextErrors[key] = msg;
+    });
+    setProfileErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
     try {
       await authAPI.updateProfile(profileForm);
       setEditingProfile(false);
       alert('Perfil actualizado exitosamente');
-      // Recargar datos del usuario
       window.location.reload();
     } catch (err) {
       console.error('Error actualizando perfil:', err);
-      alert('Error al actualizar el perfil');
+      alert(err?.error?.message || 'Error al actualizar el perfil');
     }
   };
 
@@ -94,14 +129,21 @@ export default function EmpleadoDashboard() {
       stock: String(product.stock),
       estado: product.estado
     });
+    setProductFormError('');
     setShowProductModal(true);
   };
 
   const handleProductSubmit = async (e) => {
     e.preventDefault();
+    const stockError = validateStock(productForm.stock);
+    if (stockError) {
+      setProductFormError(stockError);
+      return;
+    }
+    setProductFormError('');
     try {
       const data = {
-        stock: parseInt(productForm.stock) || 0,
+        stock: parseInt(productForm.stock, 10) || 0,
         estado: productForm.estado
       };
       await productosAPI.update(editingProduct.id, data);
@@ -189,10 +231,36 @@ export default function EmpleadoDashboard() {
             </div>
             {editingProfile ? (
               <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }} className="space-y-4">
-                <Input label="Nombre" value={profileForm.nombre} onChange={(e) => setProfileForm(prev => ({ ...prev, nombre: e.target.value }))} />
-                <Input label="Apellido" value={profileForm.apellido} onChange={(e) => setProfileForm(prev => ({ ...prev, apellido: e.target.value }))} />
-                <Input label="Dirección" value={profileForm.direccion} onChange={(e) => setProfileForm(prev => ({ ...prev, direccion: e.target.value }))} />
-                <Input label="Teléfono" value={profileForm.telefono} onChange={(e) => setProfileForm(prev => ({ ...prev, telefono: e.target.value }))} />
+                <Input
+                  label="Nombre"
+                  value={profileForm.nombre}
+                  onChange={handleProfileField('nombre', (v) => filterAlpha(v).slice(0, LIMITS.nombre.max))}
+                  maxLength={LIMITS.nombre.max}
+                  error={profileErrors.nombre}
+                />
+                <Input
+                  label="Apellido"
+                  value={profileForm.apellido}
+                  onChange={handleProfileField('apellido', (v) => filterAlpha(v).slice(0, LIMITS.apellido.max))}
+                  maxLength={LIMITS.apellido.max}
+                  error={profileErrors.apellido}
+                />
+                <Input
+                  label="Dirección"
+                  value={profileForm.direccion}
+                  onChange={handleProfileField('direccion', filterMax(LIMITS.direccion.max))}
+                  maxLength={LIMITS.direccion.max}
+                  error={profileErrors.direccion}
+                />
+                <Input
+                  label="Teléfono"
+                  value={profileForm.telefono}
+                  onChange={handleProfileField('telefono', filterPhone)}
+                  maxLength={16}
+                  inputMode="tel"
+                  placeholder="+573001234567"
+                  error={profileErrors.telefono}
+                />
                 <div className="flex justify-end gap-3 pt-4">
                   <Button variant="secondary" type="button" onClick={() => setEditingProfile(false)}>Cancelar</Button>
                   <Button type="submit">Guardar</Button>
@@ -312,13 +380,16 @@ export default function EmpleadoDashboard() {
                   label="N° Factura"
                   placeholder="CYR-2026-"
                   value={facturaFilters.numero_factura}
-                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, numero_factura: e.target.value }))}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, numero_factura: filterMax(LIMITS.numeroFactura.max)(e.target.value) }))}
+                  maxLength={LIMITS.numeroFactura.max}
                 />
                 <Input
                   label="Correo Cliente"
+                  type="email"
                   placeholder="correo@ejemplo.com"
                   value={facturaFilters.cliente_correo}
-                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, cliente_correo: e.target.value }))}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, cliente_correo: filterMax(LIMITS.correo.max)(e.target.value) }))}
+                  maxLength={LIMITS.correo.max}
                 />
                 <Input
                   label="Fecha Desde"
@@ -398,7 +469,19 @@ export default function EmpleadoDashboard() {
             </div>
             <p className="mb-4 text-sm text-[var(--color-muted)]">Editando: <strong className="text-[var(--color-text)]">{editingProduct?.nombre}</strong></p>
             <form onSubmit={handleProductSubmit} className="space-y-4">
-              <Input label="Stock Disponible" type="number" value={productForm.stock} onChange={(e) => setProductForm(prev => ({ ...prev, stock: e.target.value }))} />
+              <Input
+                label="Stock Disponible"
+                type="number"
+                value={productForm.stock}
+                onChange={(e) => {
+                  setProductForm(prev => ({ ...prev, stock: e.target.value }));
+                  setProductFormError('');
+                }}
+                min={0}
+                step={1}
+                inputMode="numeric"
+                error={productFormError || undefined}
+              />
               
               <label className="block">
                 <span className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-muted)]">Estado del Producto</span>

@@ -5,6 +5,7 @@ import { pqrAPI } from '../services/api';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import DashboardLayout from '../components/layout/DashboardLayout';
+import { LIMITS, filterMax, validateAsunto } from '../utils/validators';
 
 const tabsByRole = {
   Administrador: [
@@ -35,6 +36,7 @@ export default function PQR() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [form, setForm] = useState({ tipo: 'peticion', asunto: '', descripcion: '' });
+  const [formError, setFormError] = useState('');
 
   const loadPqrs = async () => {
     try {
@@ -53,6 +55,16 @@ export default function PQR() {
 
   const createPqr = async (event) => {
     event.preventDefault();
+    const asuntoError = validateAsunto(form.asunto);
+    if (asuntoError) {
+      setFormError(asuntoError);
+      return;
+    }
+    if (form.descripcion.trim().length < LIMITS.descripcionPqr.min) {
+      setFormError(`La descripción debe tener al menos ${LIMITS.descripcionPqr.min} caracteres.`);
+      return;
+    }
+    setFormError('');
     try {
       await pqrAPI.create(form);
       setForm({ tipo: 'peticion', asunto: '', descripcion: '' });
@@ -93,11 +105,40 @@ export default function PQR() {
                 <option value="reclamo">Reclamo</option>
               </select>
             </label>
-            <Input label="Asunto" value={form.asunto} onChange={(e) => setForm({ ...form, asunto: e.target.value })} required />
+            <Input
+              label="Asunto"
+              value={form.asunto}
+              onChange={(e) => {
+                e.target.value = filterMax(LIMITS.asunto.max)(e.target.value);
+                setForm({ ...form, asunto: e.target.value });
+                setFormError('');
+              }}
+              required
+              minLength={LIMITS.asunto.min}
+              maxLength={LIMITS.asunto.max}
+              error={formError && form.asunto.trim().length < LIMITS.asunto.min ? formError : undefined}
+            />
             <label className="grid gap-2 text-sm text-[var(--color-muted)]">
               Descripción
-              <textarea className="min-h-32 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" minLength="10" maxLength="5000" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} required />
+              <textarea
+                className="min-h-32 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                minLength={LIMITS.descripcionPqr.min}
+                maxLength={LIMITS.descripcionPqr.max}
+                value={form.descripcion}
+                onChange={(e) => {
+                  e.target.value = filterMax(LIMITS.descripcionPqr.max)(e.target.value);
+                  setForm({ ...form, descripcion: e.target.value });
+                  setFormError('');
+                }}
+                required
+              />
+              <span className="text-xs text-[var(--color-muted)]">
+                {form.descripcion.length}/{LIMITS.descripcionPqr.max}
+              </span>
             </label>
+            {formError && (
+              <p className="text-xs text-red-400">{formError}</p>
+            )}
             <div className="flex justify-end"><Button type="submit">Registrar PQR</Button></div>
           </form>
         )}

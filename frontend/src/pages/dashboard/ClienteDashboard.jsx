@@ -4,11 +4,28 @@ import { authAPI, ordenesAPI, ventasAPI } from '../../services/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import {
+  LIMITS,
+  filterAlpha,
+  filterMax,
+  filterPhone,
+  validateApellido,
+  validateDireccion,
+  validateName,
+  validateTelefono
+} from '../../utils/validators';
 
 const tabs = [
   { id: 'perfil', label: 'Mi Perfil' },
   { id: 'ordenes', label: 'Mis Órdenes' }
 ];
+
+const profileValidators = {
+  nombre: validateName,
+  apellido: validateApellido,
+  direccion: validateDireccion,
+  telefono: validateTelefono
+};
 
 export default function ClienteDashboard() {
   const { user } = useAuth();
@@ -25,6 +42,7 @@ export default function ClienteDashboard() {
     direccion: '',
     telefono: ''
   });
+  const [profileErrors, setProfileErrors] = useState({});
 
   const loadData = async () => {
     setLoading(true);
@@ -60,10 +78,26 @@ export default function ClienteDashboard() {
       direccion: user?.direccion || '',
       telefono: user?.telefono || ''
     });
+    setProfileErrors({});
     setEditingProfile(true);
   };
 
+  const handleProfileField = (name, filter) => (e) => {
+    const value = filter ? filter(e.target.value) : e.target.value;
+    e.target.value = value;
+    setProfileForm((prev) => ({ ...prev, [name]: value }));
+    setProfileErrors((prev) => ({ ...prev, [name]: profileValidators[name]?.(value) || '' }));
+  };
+
   const handleSaveProfile = async () => {
+    const nextErrors = {};
+    Object.entries(profileValidators).forEach(([key, validate]) => {
+      const msg = validate(profileForm[key]);
+      if (msg) nextErrors[key] = msg;
+    });
+    setProfileErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
     try {
       await authAPI.updateProfile(profileForm);
       setEditingProfile(false);
@@ -71,7 +105,7 @@ export default function ClienteDashboard() {
       window.location.reload();
     } catch (err) {
       console.error('Error actualizando perfil:', err);
-      alert('Error al actualizar el perfil');
+      alert(err?.error?.message || 'Error al actualizar el perfil');
     }
   };
 
@@ -126,10 +160,36 @@ export default function ClienteDashboard() {
             </div>
             {editingProfile ? (
               <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }} className="space-y-4">
-                <Input label="Nombre" value={profileForm.nombre} onChange={(e) => setProfileForm(prev => ({ ...prev, nombre: e.target.value }))} />
-                <Input label="Apellido" value={profileForm.apellido} onChange={(e) => setProfileForm(prev => ({ ...prev, apellido: e.target.value }))} />
-                <Input label="Dirección" value={profileForm.direccion} onChange={(e) => setProfileForm(prev => ({ ...prev, direccion: e.target.value }))} />
-                <Input label="Teléfono" value={profileForm.telefono} onChange={(e) => setProfileForm(prev => ({ ...prev, telefono: e.target.value }))} />
+                <Input
+                  label="Nombre"
+                  value={profileForm.nombre}
+                  onChange={handleProfileField('nombre', (v) => filterAlpha(v).slice(0, LIMITS.nombre.max))}
+                  maxLength={LIMITS.nombre.max}
+                  error={profileErrors.nombre}
+                />
+                <Input
+                  label="Apellido"
+                  value={profileForm.apellido}
+                  onChange={handleProfileField('apellido', (v) => filterAlpha(v).slice(0, LIMITS.apellido.max))}
+                  maxLength={LIMITS.apellido.max}
+                  error={profileErrors.apellido}
+                />
+                <Input
+                  label="Dirección"
+                  value={profileForm.direccion}
+                  onChange={handleProfileField('direccion', filterMax(LIMITS.direccion.max))}
+                  maxLength={LIMITS.direccion.max}
+                  error={profileErrors.direccion}
+                />
+                <Input
+                  label="Teléfono"
+                  value={profileForm.telefono}
+                  onChange={handleProfileField('telefono', filterPhone)}
+                  maxLength={16}
+                  inputMode="tel"
+                  placeholder="+573001234567"
+                  error={profileErrors.telefono}
+                />
                 <div className="flex justify-end gap-3 pt-4">
                   <Button variant="secondary" type="button" onClick={() => setEditingProfile(false)}>Cancelar</Button>
                   <Button type="submit">Guardar</Button>

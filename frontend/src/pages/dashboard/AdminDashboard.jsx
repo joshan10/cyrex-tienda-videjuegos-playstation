@@ -6,9 +6,44 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { uploadAPI } from '../../services/api';
 import { VentasBarChart, VentasLineChart, TopProductosChart, ResumenCards } from '../../components/dashboard/VentasCharts';
+import {
+  LIMITS,
+  filterAlpha,
+  filterMax,
+  filterPhone,
+  validateApellido,
+  validateCorreo,
+  validateDescripcionProducto,
+  validateDireccion,
+  validateName,
+  validatePrecio,
+  validateProductoNombre,
+  validateStock,
+  validateTelefono
+} from '../../utils/validators';
 
 const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:4000'; // base para uploads
 
+const productValidators = {
+  nombre: validateProductoNombre,
+  descripcion: validateDescripcionProducto,
+  precio: validatePrecio,
+  stock: validateStock,
+  plataforma: (value) => {
+    const v = String(value || '').trim();
+    if (!v) return 'La plataforma es obligatoria.';
+    if (v.length > LIMITS.plataforma.max) return `La plataforma no puede superar ${LIMITS.plataforma.max} caracteres.`;
+    return '';
+  }
+};
+
+const userValidators = {
+  nombre: validateName,
+  apellido: validateApellido,
+  correo: validateCorreo,
+  telefono: validateTelefono,
+  direccion: validateDireccion
+};
 
 const tabs = [
   { id: 'resumen',   label: 'Resumen' },
@@ -41,12 +76,14 @@ export default function AdminDashboard() {
   // Estado para modales de edición de productos
   const [editingProduct, setEditingProduct] = useState(null);
   const [productForm, setProductForm] = useState({ nombre: '', descripcion: '', precio: '', stock: '', plataforma: 'PlayStation', imagen_url: '' });
+  const [productErrors, setProductErrors] = useState({});
   const [showProductModal, setShowProductModal] = useState(false);
   const [imageFile, setImageFile] = useState(null);
 
   // Estado para modales de edición de usuarios
   const [editingUser, setEditingUser] = useState(null);
   const [userForm, setUserForm] = useState({ nombre: '', apellido: '', correo: '', telefono: '', direccion: '', rol_id: 3, estado: 'activo' });
+  const [userErrors, setUserErrors] = useState({});
   const [showUserModal, setShowUserModal] = useState(false);
 
   const loadData = async () => {
@@ -113,12 +150,28 @@ export default function AdminDashboard() {
         rol_id: user.rol_id,
         estado: user.estado
       });
+      setUserErrors({});
       setShowUserModal(true);
     }
   };
 
+  const handleUserField = (name, filter) => (e) => {
+    const value = filter ? filter(e.target.value) : e.target.value;
+    e.target.value = value;
+    setUserForm((prev) => ({ ...prev, [name]: value }));
+    setUserErrors((prev) => ({ ...prev, [name]: userValidators[name]?.(value) || '' }));
+  };
+
   const handleUserSubmit = async (e) => {
     e.preventDefault();
+    const nextErrors = {};
+    Object.entries(userValidators).forEach(([key, validate]) => {
+      const msg = validate(userForm[key]);
+      if (msg) nextErrors[key] = msg;
+    });
+    setUserErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
     try {
       if (editingUser) {
         await usuariosAPI.update(editingUser.id, userForm);
@@ -127,6 +180,7 @@ export default function AdminDashboard() {
       loadData();
     } catch (err) {
       console.error(err);
+      alert(err?.error?.message || 'Error al guardar el usuario');
     }
   };
 
@@ -146,12 +200,28 @@ export default function AdminDashboard() {
       setEditingProduct(null);
       setProductForm({ nombre: '', descripcion: '', precio: '', stock: '', plataforma: 'PlayStation', imagen_url: '' });
     }
+    setProductErrors({});
     setImageFile(null);
     setShowProductModal(true);
   };
 
+  const handleProductField = (name, filter) => (e) => {
+    const value = filter ? filter(e.target.value) : e.target.value;
+    e.target.value = value;
+    setProductForm((prev) => ({ ...prev, [name]: value }));
+    setProductErrors((prev) => ({ ...prev, [name]: productValidators[name]?.(value) || '' }));
+  };
+
   const handleProductSubmit = async (e) => {
     e.preventDefault();
+    const nextErrors = {};
+    Object.entries(productValidators).forEach(([key, validate]) => {
+      const msg = validate(productForm[key]);
+      if (msg) nextErrors[key] = msg;
+    });
+    setProductErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
     try {
       let finalImageUrl = productForm.imagen_url;
       let finalImagePublicId = editingProduct?.imagen_public_id || null;
@@ -169,7 +239,7 @@ export default function AdminDashboard() {
         imagen_url: finalImageUrl,
         imagen_public_id: finalImagePublicId,
         precio: parseFloat(productForm.precio),
-        stock: parseInt(productForm.stock) || 0
+        stock: parseInt(productForm.stock, 10) || 0
       };
 
       if (editingProduct) {
@@ -544,13 +614,16 @@ export default function AdminDashboard() {
                   label="N° Factura"
                   placeholder="CYR-2026-"
                   value={facturaFilters.numero_factura}
-                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, numero_factura: e.target.value }))}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, numero_factura: filterMax(LIMITS.numeroFactura.max)(e.target.value) }))}
+                  maxLength={LIMITS.numeroFactura.max}
                 />
                 <Input
                   label="Correo Cliente"
+                  type="email"
                   placeholder="correo@ejemplo.com"
                   value={facturaFilters.cliente_correo}
-                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, cliente_correo: e.target.value }))}
+                  onChange={(e) => setFacturaFilters(prev => ({ ...prev, cliente_correo: filterMax(LIMITS.correo.max)(e.target.value) }))}
+                  maxLength={LIMITS.correo.max}
                 />
                 <Input
                   label="Fecha Desde"
@@ -681,30 +754,68 @@ export default function AdminDashboard() {
               <Button variant="ghost" onClick={() => setShowProductModal(false)}>Cerrar</Button>
             </div>
             <form onSubmit={handleProductSubmit} className="space-y-4">
-              <Input label="Nombre" value={productForm.nombre} onChange={(e) => setProductForm(prev => ({ ...prev, nombre: e.target.value }))} />
+              <Input
+                label="Nombre"
+                value={productForm.nombre}
+                onChange={handleProductField('nombre', filterMax(LIMITS.productoNombre.max))}
+                maxLength={LIMITS.productoNombre.max}
+                error={productErrors.nombre}
+              />
               <label className="block">
                 <span className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-muted)]">Descripción</span>
                 <textarea
                   className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
                   rows={3}
                   value={productForm.descripcion}
-                  onChange={(e) => setProductForm(prev => ({ ...prev, descripcion: e.target.value }))}
+                  onChange={handleProductField('descripcion', filterMax(LIMITS.descripcionProducto.max))}
+                  maxLength={LIMITS.descripcionProducto.max}
                 />
+                <p className="mt-1 text-xs text-[var(--color-muted)]">
+                  {productForm.descripcion.length}/{LIMITS.descripcionProducto.max}
+                </p>
+                {productErrors.descripcion ? (
+                  <p className="mt-1 text-xs text-red-400">{productErrors.descripcion}</p>
+                ) : null}
               </label>
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Precio" type="number" value={productForm.precio} onChange={(e) => setProductForm(prev => ({ ...prev, precio: e.target.value }))} />
-                <Input label="Stock" type="number" value={productForm.stock} onChange={(e) => setProductForm(prev => ({ ...prev, stock: e.target.value }))} />
+                <Input
+                  label="Precio"
+                  type="number"
+                  value={productForm.precio}
+                  onChange={handleProductField('precio')}
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
+                  error={productErrors.precio}
+                />
+                <Input
+                  label="Stock"
+                  type="number"
+                  value={productForm.stock}
+                  onChange={handleProductField('stock')}
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  error={productErrors.stock}
+                />
               </div>
-              <Input label="Plataforma" value={productForm.plataforma} onChange={(e) => setProductForm(prev => ({ ...prev, plataforma: e.target.value }))} />
-              
+              <Input
+                label="Plataforma"
+                value={productForm.plataforma}
+                onChange={handleProductField('plataforma', filterMax(LIMITS.plataforma.max))}
+                maxLength={LIMITS.plataforma.max}
+                error={productErrors.plataforma}
+              />
+
               <label className="block">
                 <span className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-muted)]">Imagen del producto</span>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
                   onChange={(e) => setImageFile(e.target.files[0])}
                   className="w-full text-sm text-[var(--color-muted)] file:mr-4 file:rounded-xl file:border-0 file:bg-[var(--color-line)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--color-text)] hover:file:bg-[var(--color-accent)] hover:file:text-[var(--color-bg)]"
                 />
+                <p className="mt-1 text-xs text-[var(--color-muted)]">JPG, PNG, WEBP o GIF — máx. 5 MB</p>
               </label>
 
               <div className="flex justify-end gap-3 pt-2">
@@ -726,11 +837,44 @@ export default function AdminDashboard() {
               <Button variant="ghost" onClick={() => setShowUserModal(false)}>Cerrar</Button>
             </div>
             <form onSubmit={handleUserSubmit} className="space-y-4">
-              <Input label="Nombre" value={userForm.nombre} onChange={(e) => setUserForm(prev => ({ ...prev, nombre: e.target.value }))} />
-              <Input label="Apellido" value={userForm.apellido} onChange={(e) => setUserForm(prev => ({ ...prev, apellido: e.target.value }))} />
-              <Input label="Correo" type="email" value={userForm.correo} onChange={(e) => setUserForm(prev => ({ ...prev, correo: e.target.value }))} />
-              <Input label="Teléfono" value={userForm.telefono} onChange={(e) => setUserForm(prev => ({ ...prev, telefono: e.target.value }))} />
-              <Input label="Dirección" value={userForm.direccion} onChange={(e) => setUserForm(prev => ({ ...prev, direccion: e.target.value }))} />
+              <Input
+                label="Nombre"
+                value={userForm.nombre}
+                onChange={handleUserField('nombre', (v) => filterAlpha(v).slice(0, LIMITS.nombre.max))}
+                maxLength={LIMITS.nombre.max}
+                error={userErrors.nombre}
+              />
+              <Input
+                label="Apellido"
+                value={userForm.apellido}
+                onChange={handleUserField('apellido', (v) => filterAlpha(v).slice(0, LIMITS.apellido.max))}
+                maxLength={LIMITS.apellido.max}
+                error={userErrors.apellido}
+              />
+              <Input
+                label="Correo"
+                type="email"
+                value={userForm.correo}
+                onChange={handleUserField('correo', filterMax(LIMITS.correo.max))}
+                maxLength={LIMITS.correo.max}
+                error={userErrors.correo}
+              />
+              <Input
+                label="Teléfono"
+                value={userForm.telefono}
+                onChange={handleUserField('telefono', filterPhone)}
+                maxLength={16}
+                inputMode="tel"
+                placeholder="+573001234567"
+                error={userErrors.telefono}
+              />
+              <Input
+                label="Dirección"
+                value={userForm.direccion}
+                onChange={handleUserField('direccion', filterMax(LIMITS.direccion.max))}
+                maxLength={LIMITS.direccion.max}
+                error={userErrors.direccion}
+              />
               
               <div className="grid grid-cols-2 gap-4">
                 <label className="block">
