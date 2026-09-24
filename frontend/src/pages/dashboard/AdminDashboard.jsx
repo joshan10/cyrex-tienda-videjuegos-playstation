@@ -186,7 +186,13 @@ export default function AdminDashboard() {
       loadData();
     } catch (err) {
       console.error(err);
-      alert(err?.detail || err?.error || 'Error al guardar el producto');
+      const msg =
+        err?.error?.message ||
+        err?.detail ||
+        (typeof err?.error === 'string' ? err.error : null) ||
+        err?.message ||
+        'Error al guardar el producto';
+      alert(msg);
     }
   };
 
