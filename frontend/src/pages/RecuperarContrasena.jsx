@@ -69,8 +69,8 @@ export default function RecuperarContrasena() {
               maxLength={LIMITS.correo.max}
               autoComplete="email"
             />
-            <Button type="submit" className="mt-5 w-full" disabled={isLoading || !!error}>
-              {isLoading ? 'Enviando...' : 'Enviar'}
+            <Button type="submit" className="mt-5 w-full" disabled={!!error} loading={isLoading} loadingText="Enviando...">
+              Enviar
             </Button>
             {apiError && <p className="mt-3 text-sm text-red-500">{apiError}</p>}
           </form>

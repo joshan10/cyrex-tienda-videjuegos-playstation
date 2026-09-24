@@ -255,15 +255,8 @@ export default function RegistroModal({ isOpen, onClose }) {
             <Button variant="secondary" onClick={onClose} type="button">
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading || Object.values(errors).some(Boolean)}>
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-bg)] border-t-transparent" />
-                  Registrando...
-                </span>
-              ) : (
-                'Crear cuenta'
-              )}
+            <Button type="submit" disabled={Object.values(errors).some(Boolean)} loading={isLoading} loadingText="Registrando...">
+              Crear cuenta
             </Button>
           </div>
         </form>

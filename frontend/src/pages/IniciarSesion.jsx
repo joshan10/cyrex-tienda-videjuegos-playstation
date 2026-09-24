@@ -204,17 +204,13 @@ export default function IniciarSesion() {
               </div>
             )}
 
-            <Button type="submit" className="mt-6 w-full" disabled={isLoading}>
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-bg)] border-t-transparent" />
-                  {step === 1 ? 'Verificando...' : 'Iniciando...'}
-                </span>
-              ) : step === 1 ? (
-                'Continuar'
-              ) : (
-                'Iniciar sesión'
-              )}
+            <Button
+              type="submit"
+              className="mt-6 w-full"
+              loading={isLoading}
+              loadingText={step === 1 ? 'Verificando...' : 'Iniciando...'}
+            >
+              {step === 1 ? 'Continuar' : 'Iniciar sesión'}
             </Button>
 
             <div className="mt-5 flex items-center justify-between text-sm">

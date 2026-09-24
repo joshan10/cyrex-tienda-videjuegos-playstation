@@ -3,6 +3,8 @@ export default function Button({
   type = 'button',
   variant = 'primary',
   className = '',
+  loading = false,
+  loadingText = 'Cargando...',
   ...props
 }) {
   const variants = {
@@ -14,13 +16,24 @@ export default function Button({
       'bg-transparent text-[var(--color-muted)] hover:text-[var(--color-text)]'
   };
 
+  const isDisabled = loading || props.disabled;
+  const spinnerBorder = variant === 'primary' ? 'border-[var(--color-bg)]' : 'border-[var(--color-accent)]';
+
   return (
     <button
       type={type}
-      className={`inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold tracking-wide transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
+      disabled={isDisabled}
+      aria-busy={loading}
+      className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold tracking-wide transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${className}`}
       {...props}
     >
-      {children}
+      {loading && (
+        <span
+          className={`h-4 w-4 shrink-0 animate-spin rounded-full border-2 ${spinnerBorder} border-t-transparent`}
+          aria-hidden="true"
+        />
+      )}
+      {loading ? loadingText : children}
     </button>
   );
 }

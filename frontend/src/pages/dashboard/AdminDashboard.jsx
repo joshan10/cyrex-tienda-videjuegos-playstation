@@ -79,12 +79,23 @@ export default function AdminDashboard() {
   const [productErrors, setProductErrors] = useState({});
   const [showProductModal, setShowProductModal] = useState(false);
   const [imageFile, setImageFile] = useState(null);
+  const [savingProduct, setSavingProduct] = useState(false);
 
   // Estado para modales de edición de usuarios
   const [editingUser, setEditingUser] = useState(null);
   const [userForm, setUserForm] = useState({ nombre: '', apellido: '', correo: '', telefono: '', direccion: '', rol_id: 3, estado: 'activo' });
   const [userErrors, setUserErrors] = useState({});
   const [showUserModal, setShowUserModal] = useState(false);
+  const [savingUser, setSavingUser] = useState(false);
+
+  // Estados de carga para acciones puntuales
+  const [busyUserId, setBusyUserId] = useState(null);
+  const [busyProductId, setBusyProductId] = useState(null);
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
+  const [facturaBusy, setFacturaBusy] = useState(false);
+  const [downloadingFactura, setDownloadingFactura] = useState(null);
+  const [reporteBusy, setReporteBusy] = useState(false);
+  const [exporting, setExporting] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -119,21 +130,27 @@ export default function AdminDashboard() {
   // --- Usuarios ---
   const handleToggleUserStatus = async (id, estadoActual) => {
     const nuevoEstado = estadoActual === 'activo' ? 'inactivo' : 'activo';
+    setBusyUserId(id);
     try {
       await usuariosAPI.changeStatus(id, nuevoEstado);
       loadData();
     } catch (err) {
       console.error(err);
+    } finally {
+      setBusyUserId(null);
     }
   };
 
   const handleDeleteUser = async (id) => {
     if (confirm('¿Eliminar este usuario definitivamente? Esta acción no se puede deshacer.')) {
+      setBusyUserId(id);
       try {
         await usuariosAPI.remove(id);
         loadData();
       } catch (err) {
         console.error(err);
+      } finally {
+        setBusyUserId(null);
       }
     }
   };
@@ -172,6 +189,7 @@ export default function AdminDashboard() {
     setUserErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
+    setSavingUser(true);
     try {
       if (editingUser) {
         await usuariosAPI.update(editingUser.id, userForm);
@@ -181,6 +199,8 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error(err);
       alert(err?.error?.message || 'Error al guardar el usuario');
+    } finally {
+      setSavingUser(false);
     }
   };
 
@@ -222,6 +242,7 @@ export default function AdminDashboard() {
     setProductErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
+    setSavingProduct(true);
     try {
       let finalImageUrl = productForm.imagen_url;
       let finalImagePublicId = editingProduct?.imagen_public_id || null;
@@ -263,41 +284,53 @@ export default function AdminDashboard() {
         err?.message ||
         'Error al guardar el producto';
       alert(msg);
+    } finally {
+      setSavingProduct(false);
     }
   };
 
   const handleDeleteProduct = async (id) => {
+    setBusyProductId(id);
     try {
       await productosAPI.changeStatus(id, 'inactivo');
       loadData();
     } catch (err) {
       console.error(err);
+    } finally {
+      setBusyProductId(null);
     }
   };
 
   const handleDeleteProductPermanent = async (id) => {
     if (confirm('¿Eliminar este producto definitivamente? Esta acción no se puede deshacer.')) {
+      setBusyProductId(id);
       try {
         await productosAPI.remove(id);
         loadData();
       } catch (err) {
         console.error(err);
+      } finally {
+        setBusyProductId(null);
       }
     }
   };
 
   // --- Órdenes ---
   const handleUpdateOrderStatus = async (id, estado) => {
+    setUpdatingOrderId(id);
     try {
       await ordenesAPI.updateEstado(id, estado);
       loadData();
     } catch (err) {
       console.error(err);
+    } finally {
+      setUpdatingOrderId(null);
     }
   };
 
   // --- Facturas ---
   const handleFacturaFilter = async () => {
+    setFacturaBusy(true);
     try {
       const filters = {};
       if (facturaFilters.numero_factura) filters.numero_factura = facturaFilters.numero_factura;
@@ -308,44 +341,70 @@ export default function AdminDashboard() {
       setFacturas(data.items || []);
     } catch (err) {
       console.error(err);
+    } finally {
+      setFacturaBusy(false);
     }
   };
 
   const handleClearFacturaFilters = async () => {
     setFacturaFilters({ numero_factura: '', cliente_correo: '', fecha_desde: '', fecha_hasta: '' });
+    setFacturaBusy(true);
     try {
       const data = await ventasAPI.getAll();
       setFacturas(data.items || []);
     } catch (err) {
       console.error(err);
+    } finally {
+      setFacturaBusy(false);
+    }
+  };
+
+  const handleDownloadFactura = async (numero) => {
+    setDownloadingFactura(numero);
+    try {
+      await ventasAPI.downloadInvoicePdf(numero);
+    } catch (err) {
+      console.error(err);
+      alert('No fue posible descargar la factura.');
+    } finally {
+      setDownloadingFactura(null);
     }
   };
 
   // --- Reportes ---
   const cargarReporte = async () => {
+    setReporteBusy(true);
     try {
       const data = await ventasAPI.getReporteDetallado(reporteFechas.fecha_inicio, reporteFechas.fecha_fin);
       setReporteData(data.reporte || null);
     } catch (err) {
       console.error(err);
+    } finally {
+      setReporteBusy(false);
     }
   };
 
   const handleExportExcel = async () => {
+    setExporting('excel');
     try {
       await ventasAPI.downloadExcel(reporteFechas.fecha_inicio, reporteFechas.fecha_fin);
     } catch (err) {
       console.error(err);
       alert('Error al exportar Excel');
+    } finally {
+      setExporting(null);
     }
   };
 
   const handleExportPdf = async () => {
+    setExporting('pdf');
     try {
       await ventasAPI.downloadPdf(reporteFechas.fecha_inicio, reporteFechas.fecha_fin);
     } catch (err) {
       console.error(err);
       alert('Error al exportar PDF');
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -381,7 +440,7 @@ export default function AdminDashboard() {
 
   return (
     <DashboardLayout tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}>
-      <section className="mx-auto w-full max-w-6xl px-6 py-10">
+      <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-accent)]">Panel de Control</p>
           <h1 className="font-display text-3xl text-[var(--color-text)] md:text-4xl">
@@ -415,12 +474,12 @@ export default function AdminDashboard() {
                 <h3 className="mb-4 text-sm font-semibold uppercase tracking-widest text-[var(--color-text)]">Ventas Recientes</h3>
                 <div className="space-y-3">
                   {stats.ventas_recientes.slice(0, 5).map((v) => (
-                    <div key={v.id} className="flex items-center justify-between rounded-lg bg-[var(--color-bg)] px-4 py-3">
-                      <div>
-                        <p className="text-sm text-[var(--color-text)]">{v.nombre} {v.apellido}</p>
+                    <div key={v.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--color-bg)] px-4 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-[var(--color-text)]">{v.nombre} {v.apellido}</p>
                         <p className="text-xs text-[var(--color-muted)]">{formatDate(v.created_at)}</p>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex shrink-0 flex-wrap items-center gap-3">
                         <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusColors[v.estado]}`}>
                           {v.estado}
                         </span>
@@ -473,14 +532,16 @@ export default function AdminDashboard() {
                           {u.id !== user?.id && (
                             <>
                               <button
+                                disabled={busyUserId === u.id}
                                 onClick={() => handleToggleUserStatus(u.id, u.estado)}
-                                className={`text-xs transition ${u.estado === 'activo' ? 'text-amber-400 hover:text-amber-300' : 'text-emerald-400 hover:text-emerald-300'}`}
+                                className={`text-xs transition disabled:opacity-50 ${u.estado === 'activo' ? 'text-amber-400 hover:text-amber-300' : 'text-emerald-400 hover:text-emerald-300'}`}
                               >
-                                {u.estado === 'activo' ? 'Desactivar' : 'Activar'}
+                                {busyUserId === u.id ? '...' : u.estado === 'activo' ? 'Desactivar' : 'Activar'}
                               </button>
                               <button
+                                disabled={busyUserId === u.id}
                                 onClick={() => handleDeleteUser(u.id)}
-                                className="text-xs text-red-400 transition hover:text-red-300"
+                                className="text-xs text-red-400 transition hover:text-red-300 disabled:opacity-50"
                               >
                                 Eliminar
                               </button>
@@ -523,23 +584,25 @@ export default function AdminDashboard() {
                       <p className="font-display text-lg text-[var(--color-accent)]">{formatPrice(p.precio)}</p>
                       <p className="text-xs text-[var(--color-muted)]">Stock: {p.stock}</p>
                     </div>
-                    <div className="mt-4 flex gap-2">
+                    <div className="mt-4 flex flex-wrap gap-2">
                       <Button variant="secondary" className="flex-1 !py-2 !text-xs" onClick={() => openProductModal(p)}>
                         Editar
                       </Button>
                       <button
+                        disabled={busyProductId === p.id}
                         onClick={() => handleDeleteProduct(p.id)}
-                        className={`rounded-lg border px-3 py-2 text-xs transition ${
+                        className={`rounded-lg border px-3 py-2 text-xs transition disabled:opacity-50 ${
                           p.estado === 'activo'
                             ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10'
                             : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
                         }`}
                       >
-                        {p.estado === 'activo' ? 'Desactivar' : 'Activar'}
+                        {busyProductId === p.id ? '...' : p.estado === 'activo' ? 'Desactivar' : 'Activar'}
                       </button>
                       <button
+                        disabled={busyProductId === p.id}
                         onClick={() => handleDeleteProductPermanent(p.id)}
-                        className="rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-400 transition hover:bg-red-500/10"
+                        className="rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
                       >
                         Eliminar
                       </button>
@@ -580,8 +643,9 @@ export default function AdminDashboard() {
                       <td className="px-5 py-4">
                         <select
                           value={o.estado}
+                          disabled={updatingOrderId === o.id}
                           onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value)}
-                          className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1 text-xs text-[var(--color-text)] outline-none"
+                          className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1 text-xs text-[var(--color-text)] outline-none disabled:opacity-60"
                         >
                           <option value="pendiente">Pendiente</option>
                           <option value="procesando">Procesando</option>
@@ -638,9 +702,9 @@ export default function AdminDashboard() {
                   onChange={(e) => setFacturaFilters(prev => ({ ...prev, fecha_hasta: e.target.value }))}
                 />
               </div>
-              <div className="mt-3 flex gap-2">
-                <Button onClick={handleFacturaFilter}>Buscar</Button>
-                <Button variant="secondary" onClick={handleClearFacturaFilters}>Limpiar</Button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button onClick={handleFacturaFilter} loading={facturaBusy} loadingText="Buscando...">Buscar</Button>
+                <Button variant="secondary" onClick={handleClearFacturaFilters} loading={facturaBusy} loadingText="Limpiando...">Limpiar</Button>
               </div>
             </div>
 
@@ -676,12 +740,22 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td className="px-5 py-4 text-[var(--color-muted)]">{formatDate(f.fecha_venta)}</td>
-                        <td className="px-5 py-4"><Button variant="secondary" className="!px-3 !py-1 !text-xs" onClick={() => ventasAPI.downloadInvoicePdf(f.numero_factura)}>Descargar</Button></td>
+                        <td className="px-5 py-4">
+                          <Button
+                            variant="secondary"
+                            className="!px-3 !py-1 !text-xs"
+                            loading={downloadingFactura === f.numero_factura}
+                            loadingText="..."
+                            onClick={() => handleDownloadFactura(f.numero_factura)}
+                          >
+                            Descargar
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                     {facturas.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
+                        <td colSpan={9} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
                           No hay facturas registradas aún.
                         </td>
                       </tr>
@@ -698,7 +772,7 @@ export default function AdminDashboard() {
             {/* Filtros de fecha para reportes */}
             <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-5">
               <div className="flex flex-wrap items-end gap-3">
-                <div className="flex-1 min-w-[200px]">
+                <div className="min-w-[160px] flex-1 sm:min-w-[200px]">
                   <Input
                     label="Fecha Inicio"
                     type="date"
@@ -706,7 +780,7 @@ export default function AdminDashboard() {
                     onChange={(e) => setReporteFechas(prev => ({ ...prev, fecha_inicio: e.target.value }))}
                   />
                 </div>
-                <div className="flex-1 min-w-[200px]">
+                <div className="min-w-[160px] flex-1 sm:min-w-[200px]">
                   <Input
                     label="Fecha Fin"
                     type="date"
@@ -714,9 +788,9 @@ export default function AdminDashboard() {
                     onChange={(e) => setReporteFechas(prev => ({ ...prev, fecha_fin: e.target.value }))}
                   />
                 </div>
-                <Button onClick={cargarReporte}>Generar Reporte</Button>
-                <Button variant="secondary" onClick={handleExportExcel}>Exportar Excel</Button>
-                <Button variant="secondary" onClick={handleExportPdf}>Exportar PDF</Button>
+                <Button onClick={cargarReporte} loading={reporteBusy} loadingText="Generando...">Generar Reporte</Button>
+                <Button variant="secondary" onClick={handleExportExcel} loading={exporting === 'excel'} loadingText="Exportando...">Exportar Excel</Button>
+                <Button variant="secondary" onClick={handleExportPdf} loading={exporting === 'pdf'} loadingText="Exportando...">Exportar PDF</Button>
                 <Button variant="secondary" onClick={() => { setReporteFechas({ fecha_inicio: '', fecha_fin: '' }); setReporteData(null); }}>Limpiar</Button>
               </div>
             </div>
@@ -736,7 +810,7 @@ export default function AdminDashboard() {
             )}
 
             {!reporteData && (
-              <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-10 text-center">
+              <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-6 text-center sm:p-10">
                 <p className="text-sm text-[var(--color-muted)]">Selecciona un rango de fechas y haz clic en "Generar Reporte" para ver los gráficos.</p>
               </div>
             )}
@@ -746,12 +820,12 @@ export default function AdminDashboard() {
 
       {showProductModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[color:rgba(9,10,15,.72)] px-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-[0_20px_60px_rgba(0,0,0,.45)]">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-4 shadow-[0_20px_60px_rgba(0,0,0,.45)] sm:p-6">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="font-display text-xl text-[var(--color-text)]">
                 {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
               </h3>
-              <Button variant="ghost" onClick={() => setShowProductModal(false)}>Cerrar</Button>
+              <Button variant="ghost" disabled={savingProduct} onClick={() => setShowProductModal(false)}>Cerrar</Button>
             </div>
             <form onSubmit={handleProductSubmit} className="space-y-4">
               <Input
@@ -777,7 +851,7 @@ export default function AdminDashboard() {
                   <p className="mt-1 text-xs text-red-400">{productErrors.descripcion}</p>
                 ) : null}
               </label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Input
                   label="Precio"
                   type="number"
@@ -818,9 +892,9 @@ export default function AdminDashboard() {
                 <p className="mt-1 text-xs text-[var(--color-muted)]">JPG, PNG, WEBP o GIF — máx. 5 MB</p>
               </label>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="secondary" type="button" onClick={() => setShowProductModal(false)}>Cancelar</Button>
-                <Button type="submit">{editingProduct ? 'Actualizar' : 'Crear'}</Button>
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
+                <Button variant="secondary" type="button" disabled={savingProduct} onClick={() => setShowProductModal(false)}>Cancelar</Button>
+                <Button type="submit" loading={savingProduct} loadingText={editingProduct ? 'Actualizando...' : 'Creando...'}>{editingProduct ? 'Actualizar' : 'Crear'}</Button>
               </div>
             </form>
           </div>
@@ -829,12 +903,12 @@ export default function AdminDashboard() {
       {/* Modal de Usuario */}
       {showUserModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[color:rgba(9,10,15,.72)] px-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-[0_20px_60px_rgba(0,0,0,.45)]">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-4 shadow-[0_20px_60px_rgba(0,0,0,.45)] sm:p-6">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="font-display text-xl text-[var(--color-text)]">
                 Editar Usuario
               </h3>
-              <Button variant="ghost" onClick={() => setShowUserModal(false)}>Cerrar</Button>
+              <Button variant="ghost" disabled={savingUser} onClick={() => setShowUserModal(false)}>Cerrar</Button>
             </div>
             <form onSubmit={handleUserSubmit} className="space-y-4">
               <Input
@@ -876,7 +950,7 @@ export default function AdminDashboard() {
                 error={userErrors.direccion}
               />
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-muted)]">Rol</span>
                   <select
@@ -902,9 +976,9 @@ export default function AdminDashboard() {
                 </label>
               </div>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="secondary" type="button" onClick={() => setShowUserModal(false)}>Cancelar</Button>
-                <Button type="submit">Guardar</Button>
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
+                <Button variant="secondary" type="button" disabled={savingUser} onClick={() => setShowUserModal(false)}>Cancelar</Button>
+                <Button type="submit" loading={savingUser} loadingText="Guardando...">Guardar</Button>
               </div>
             </form>
           </div>

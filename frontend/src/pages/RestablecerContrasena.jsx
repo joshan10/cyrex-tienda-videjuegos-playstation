@@ -113,8 +113,8 @@ export default function RestablecerContrasena() {
                 maxLength={LIMITS.password.max}
                 autoComplete="new-password"
               />
-              <Button type="submit" className="mt-2 w-full" disabled={isLoading}>
-                {isLoading ? 'Actualizando...' : 'Actualizar Contraseña'}
+              <Button type="submit" className="mt-2 w-full" loading={isLoading} loadingText="Actualizando...">
+                Actualizar Contraseña
               </Button>
               {apiError && <p className="text-sm text-red-500">{apiError}</p>}
             </form>

@@ -43,6 +43,8 @@ export default function ClienteDashboard() {
     telefono: ''
   });
   const [profileErrors, setProfileErrors] = useState({});
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -98,6 +100,7 @@ export default function ClienteDashboard() {
     setProfileErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
+    setSavingProfile(true);
     try {
       await authAPI.updateProfile(profileForm);
       setEditingProfile(false);
@@ -106,16 +109,27 @@ export default function ClienteDashboard() {
     } catch (err) {
       console.error('Error actualizando perfil:', err);
       alert(err?.error?.message || 'Error al actualizar el perfil');
+    } finally {
+      setSavingProfile(false);
     }
   };
 
   const handleDownloadInvoice = async (orden) => {
     const factura = facturasMap[orden.id];
 
-    if (factura) {
-      await ventasAPI.downloadInvoicePdf(factura.numero_factura);
-    } else {
+    if (!factura) {
       alert('Esta orden todavía no tiene una factura generada.');
+      return;
+    }
+
+    setDownloadingId(orden.id);
+    try {
+      await ventasAPI.downloadInvoicePdf(factura.numero_factura);
+    } catch (err) {
+      console.error(err);
+      alert('No fue posible descargar la factura.');
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -141,7 +155,7 @@ export default function ClienteDashboard() {
 
   return (
     <DashboardLayout tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}>
-      <section className="mx-auto w-full max-w-6xl px-6 py-10">
+      <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-accent)]">Mi Cuenta</p>
           <h1 className="font-display text-3xl text-[var(--color-text)] md:text-4xl">
@@ -151,11 +165,11 @@ export default function ClienteDashboard() {
         </div>
 
         {activeTab === 'perfil' && (
-          <div className="max-w-2xl rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-6">
+          <div className="max-w-2xl rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-4 sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-display text-xl text-[var(--color-text)]">Datos Personales</h3>
               {!editingProfile && (
-                <Button variant="secondary" onClick={handleEditProfile}>Editar</Button>
+                <Button variant="secondary" disabled={savingProfile} onClick={handleEditProfile}>Editar</Button>
               )}
             </div>
             {editingProfile ? (
@@ -190,9 +204,9 @@ export default function ClienteDashboard() {
                   placeholder="+573001234567"
                   error={profileErrors.telefono}
                 />
-                <div className="flex justify-end gap-3 pt-4">
-                  <Button variant="secondary" type="button" onClick={() => setEditingProfile(false)}>Cancelar</Button>
-                  <Button type="submit">Guardar</Button>
+                <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
+                  <Button variant="secondary" type="button" disabled={savingProfile} onClick={() => setEditingProfile(false)}>Cancelar</Button>
+                  <Button type="submit" loading={savingProfile} loadingText="Guardando...">Guardar</Button>
                 </div>
               </form>
             ) : (
@@ -247,7 +261,13 @@ export default function ClienteDashboard() {
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <Button variant="secondary" className="!py-1 !px-3 !text-xs" onClick={() => handleDownloadInvoice(o)}>
+                        <Button
+                          variant="secondary"
+                          className="!py-1 !px-3 !text-xs"
+                          loading={downloadingId === o.id}
+                          loadingText="Descargando..."
+                          onClick={() => handleDownloadInvoice(o)}
+                        >
                           Descargar Factura
                         </Button>
                       </td>

@@ -59,6 +59,11 @@ export default function EmpleadoDashboard() {
   });
   const [profileErrors, setProfileErrors] = useState({});
   const [productFormError, setProductFormError] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
+  const [facturaBusy, setFacturaBusy] = useState(false);
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -112,6 +117,7 @@ export default function EmpleadoDashboard() {
     setProfileErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
+    setSavingProfile(true);
     try {
       await authAPI.updateProfile(profileForm);
       setEditingProfile(false);
@@ -120,6 +126,8 @@ export default function EmpleadoDashboard() {
     } catch (err) {
       console.error('Error actualizando perfil:', err);
       alert(err?.error?.message || 'Error al actualizar el perfil');
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -141,6 +149,7 @@ export default function EmpleadoDashboard() {
       return;
     }
     setProductFormError('');
+    setSavingProduct(true);
     try {
       const data = {
         stock: parseInt(productForm.stock, 10) || 0,
@@ -151,20 +160,27 @@ export default function EmpleadoDashboard() {
       loadData();
     } catch (err) {
       console.error(err);
+      alert(err?.error?.message || 'Error al actualizar el inventario');
+    } finally {
+      setSavingProduct(false);
     }
   };
 
   const handleUpdateOrderStatus = async (id, estado) => {
+    setUpdatingOrderId(id);
     try {
       await ordenesAPI.updateEstado(id, estado);
       loadData();
     } catch (err) {
       console.error(err);
+    } finally {
+      setUpdatingOrderId(null);
     }
   };
 
   // --- Facturas ---
   const handleFacturaFilter = async () => {
+    setFacturaBusy(true);
     try {
       const filters = {};
       if (facturaFilters.numero_factura) filters.numero_factura = facturaFilters.numero_factura;
@@ -175,16 +191,33 @@ export default function EmpleadoDashboard() {
       setFacturas(data.items || []);
     } catch (err) {
       console.error(err);
+    } finally {
+      setFacturaBusy(false);
     }
   };
 
   const handleClearFacturaFilters = async () => {
     setFacturaFilters({ numero_factura: '', cliente_correo: '', fecha_desde: '', fecha_hasta: '' });
+    setFacturaBusy(true);
     try {
       const data = await ventasAPI.getAll();
       setFacturas(data.items || []);
     } catch (err) {
       console.error(err);
+    } finally {
+      setFacturaBusy(false);
+    }
+  };
+
+  const handleDownloadInvoice = async (numero) => {
+    setDownloadingId(numero);
+    try {
+      await ventasAPI.downloadInvoicePdf(numero);
+    } catch (err) {
+      console.error(err);
+      alert('No fue posible descargar la factura.');
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -212,7 +245,7 @@ export default function EmpleadoDashboard() {
 
   return (
     <DashboardLayout tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}>
-      <section className="mx-auto w-full max-w-6xl px-6 py-10">
+      <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-accent)]">Panel de Control</p>
           <h1 className="font-display text-3xl text-[var(--color-text)] md:text-4xl">
@@ -222,11 +255,11 @@ export default function EmpleadoDashboard() {
         </div>
 
         {activeTab === 'perfil' && (
-          <div className="max-w-2xl rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-6">
+          <div className="max-w-2xl rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-4 sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-display text-xl text-[var(--color-text)]">Datos Personales</h3>
               {!editingProfile && (
-                <Button variant="secondary" onClick={handleEditProfile}>Editar</Button>
+                <Button variant="secondary" disabled={savingProfile} onClick={handleEditProfile}>Editar</Button>
               )}
             </div>
             {editingProfile ? (
@@ -261,9 +294,9 @@ export default function EmpleadoDashboard() {
                   placeholder="+573001234567"
                   error={profileErrors.telefono}
                 />
-                <div className="flex justify-end gap-3 pt-4">
-                  <Button variant="secondary" type="button" onClick={() => setEditingProfile(false)}>Cancelar</Button>
-                  <Button type="submit">Guardar</Button>
+                <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
+                  <Button variant="secondary" type="button" disabled={savingProfile} onClick={() => setEditingProfile(false)}>Cancelar</Button>
+                  <Button type="submit" loading={savingProfile} loadingText="Guardando...">Guardar</Button>
                 </div>
               </form>
             ) : (
@@ -347,8 +380,9 @@ export default function EmpleadoDashboard() {
                       <td className="px-5 py-4">
                         <select
                           value={o.estado}
+                          disabled={updatingOrderId === o.id}
                           onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value)}
-                          className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1 text-xs text-[var(--color-text)] outline-none"
+                          className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1 text-xs text-[var(--color-text)] outline-none disabled:opacity-60"
                         >
                           <option value="pendiente">Pendiente</option>
                           <option value="procesando">Procesando</option>
@@ -404,9 +438,9 @@ export default function EmpleadoDashboard() {
                   onChange={(e) => setFacturaFilters(prev => ({ ...prev, fecha_hasta: e.target.value }))}
                 />
               </div>
-              <div className="mt-3 flex gap-2">
-                <Button onClick={handleFacturaFilter}>Buscar</Button>
-                <Button variant="secondary" onClick={handleClearFacturaFilters}>Limpiar</Button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button onClick={handleFacturaFilter} loading={facturaBusy} loadingText="Buscando...">Buscar</Button>
+                <Button variant="secondary" onClick={handleClearFacturaFilters} loading={facturaBusy} loadingText="Limpiando...">Limpiar</Button>
               </div>
             </div>
 
@@ -439,12 +473,22 @@ export default function EmpleadoDashboard() {
                           </span>
                         </td>
                         <td className="px-5 py-4 text-[var(--color-muted)]">{formatDate(f.fecha_venta)}</td>
-                        <td className="px-5 py-4"><Button variant="secondary" className="!px-3 !py-1 !text-xs" onClick={() => ventasAPI.downloadInvoicePdf(f.numero_factura)}>Descargar</Button></td>
+                        <td className="px-5 py-4">
+                          <Button
+                            variant="secondary"
+                            className="!px-3 !py-1 !text-xs"
+                            loading={downloadingId === f.numero_factura}
+                            loadingText="..."
+                            onClick={() => handleDownloadInvoice(f.numero_factura)}
+                          >
+                            Descargar
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                     {facturas.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
+                        <td colSpan={8} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
                           No hay facturas registradas aún.
                         </td>
                       </tr>
@@ -460,12 +504,12 @@ export default function EmpleadoDashboard() {
       {/* Modal de Producto para Empleado */}
       {showProductModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[color:rgba(9,10,15,.72)] px-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-6 shadow-[0_20px_60px_rgba(0,0,0,.45)]">
+          <div className="w-full max-w-sm rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-4 shadow-[0_20px_60px_rgba(0,0,0,.45)] max-h-[90vh] overflow-y-auto sm:p-6">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="font-display text-lg text-[var(--color-text)]">
                 Editar Inventario
               </h3>
-              <Button variant="ghost" onClick={() => setShowProductModal(false)}>Cerrar</Button>
+              <Button variant="ghost" disabled={savingProduct} onClick={() => setShowProductModal(false)}>Cerrar</Button>
             </div>
             <p className="mb-4 text-sm text-[var(--color-muted)]">Editando: <strong className="text-[var(--color-text)]">{editingProduct?.nombre}</strong></p>
             <form onSubmit={handleProductSubmit} className="space-y-4">
@@ -495,9 +539,9 @@ export default function EmpleadoDashboard() {
                 </select>
               </label>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <Button variant="secondary" type="button" onClick={() => setShowProductModal(false)}>Cancelar</Button>
-                <Button type="submit">Actualizar</Button>
+              <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
+                <Button variant="secondary" type="button" disabled={savingProduct} onClick={() => setShowProductModal(false)}>Cancelar</Button>
+                <Button type="submit" loading={savingProduct} loadingText="Actualizando...">Actualizar</Button>
               </div>
             </form>
           </div>

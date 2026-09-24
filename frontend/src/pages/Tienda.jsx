@@ -268,8 +268,8 @@ export default function Tienda() {
                   <span className="font-display font-semibold text-[var(--color-text)]">{formatPrice(totalCarrito)}</span>
                 </div>
                 <p className="mb-6 text-xs text-[var(--color-muted)]">Impuestos y gastos de envío calculados en el checkout.</p>
-                <Button onClick={procesarCompra} disabled={procesando} className="w-full">
-                  {procesando ? 'Procesando...' : 'Finalizar Compra'}
+                <Button onClick={procesarCompra} loading={procesando} loadingText="Procesando..." className="w-full">
+                  Finalizar Compra
                 </Button>
               </div>
             )}

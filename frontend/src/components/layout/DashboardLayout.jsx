@@ -45,13 +45,13 @@ export default function DashboardLayout({ children, tabs, activeTab, onTabChange
           </div>
         </div>
 
-        <nav className="flex gap-2 overflow-x-auto px-4 pb-4 lg:flex-1 lg:flex-col lg:gap-2 lg:px-4 lg:py-2">
+        <nav className="flex flex-wrap gap-2 overflow-x-auto px-4 pb-4 lg:flex-1 lg:flex-col lg:flex-nowrap lg:gap-2 lg:overflow-x-visible lg:px-4 lg:py-2">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => onTabChange(tab.id)}
-              className={`flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-medium transition-colors lg:w-full ${
+              className={`flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors lg:w-full lg:px-4 lg:py-3 ${
                 activeTab === tab.id
                   ? 'bg-[var(--color-accent)] text-[var(--color-bg)]'
                   : 'text-[var(--color-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]'
@@ -80,10 +80,11 @@ export default function DashboardLayout({ children, tabs, activeTab, onTabChange
       </aside>
 
       <main className="min-w-0 flex-1 lg:ml-72">
-        <div className="flex items-center justify-between border-b border-[var(--color-line)] px-6 py-3 lg:hidden">
-          <span className="text-xs text-[var(--color-muted)]">{user?.rol}</span>
-          <div className="flex items-center gap-4 text-xs">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--color-line)] px-4 py-3 lg:hidden">
+          <span className="truncate text-xs text-[var(--color-muted)]">{user?.rol}</span>
+          <div className="flex shrink-0 items-center gap-3 text-xs">
             <NavLink to="/" className="text-[var(--color-accent)]">Web principal</NavLink>
+            <NavLink to="/pqr" className="text-[var(--color-muted)] hover:text-[var(--color-text)]">PQR</NavLink>
             <button type="button" onClick={handleLogout} className="text-red-400">Salir</button>
           </div>
         </div>

@@ -37,6 +37,8 @@ export default function PQR() {
   const [error, setError] = useState('');
   const [form, setForm] = useState({ tipo: 'peticion', asunto: '', descripcion: '' });
   const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
 
   const loadPqrs = async () => {
     try {
@@ -65,27 +67,33 @@ export default function PQR() {
       return;
     }
     setFormError('');
+    setSubmitting(true);
     try {
       await pqrAPI.create(form);
       setForm({ tipo: 'peticion', asunto: '', descripcion: '' });
       await loadPqrs();
     } catch (err) {
       setError(err?.error?.message || 'No fue posible registrar la solicitud.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const updatePqr = async (item, estado) => {
+    setUpdatingId(item.id);
     try {
       await pqrAPI.update(item.id, { estado });
       await loadPqrs();
     } catch (err) {
       setError(err?.error?.message || 'No fue posible actualizar la PQR.');
+    } finally {
+      setUpdatingId(null);
     }
   };
 
   return (
     <DashboardLayout tabs={tabs} activeTab="pqr" onTabChange={(tab) => tab === 'pqr' ? null : navigate(dashboardPath)}>
-      <section className="mx-auto w-full max-w-6xl px-6 py-10">
+      <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-accent)]">Atención al cliente</p>
           <h1 className="font-display text-3xl text-[var(--color-text)]">Peticiones, quejas y reclamos</h1>
@@ -139,7 +147,9 @@ export default function PQR() {
             {formError && (
               <p className="text-xs text-red-400">{formError}</p>
             )}
-            <div className="flex justify-end"><Button type="submit">Registrar PQR</Button></div>
+            <div className="flex justify-end">
+              <Button type="submit" loading={submitting} loadingText="Registrando...">Registrar PQR</Button>
+            </div>
           </form>
         )}
 
@@ -150,7 +160,7 @@ export default function PQR() {
               {items.map((item) => (
                 <article key={item.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_auto]">
                   <div><div className="flex flex-wrap items-center gap-3"><h3 className="font-semibold text-[var(--color-text)]">{item.asunto}</h3><span className="rounded-full bg-[var(--color-bg)] px-3 py-1 text-xs text-[var(--color-accent)]">{statusLabels[item.estado]}</span></div><p className="mt-1 text-xs uppercase tracking-widest text-[var(--color-muted)]">{item.tipo} · {new Date(item.fecha_creacion).toLocaleDateString('es-CO')}</p><p className="mt-3 text-sm text-[var(--color-muted)]">{item.descripcion}</p>{item.respuesta && <p className="mt-3 border-l-2 border-[var(--color-accent)] pl-3 text-sm text-[var(--color-text)]">{item.respuesta}</p>}</div>
-                  {isStaff && <select aria-label={`Estado de PQR ${item.id}`} className="h-fit rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-text)]" value={item.estado} onChange={(e) => updatePqr(item, e.target.value)}><option value="pendiente">Pendiente</option><option value="en_proceso">En proceso</option><option value="respondida">Respondida</option><option value="cerrada">Cerrada</option></select>}
+                  {isStaff && <select aria-label={`Estado de PQR ${item.id}`} className="h-fit rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-text)] disabled:opacity-60" value={item.estado} disabled={updatingId === item.id} onChange={(e) => updatePqr(item, e.target.value)}><option value="pendiente">Pendiente</option><option value="en_proceso">En proceso</option><option value="respondida">Respondida</option><option value="cerrada">Cerrada</option></select>}
                 </article>
               ))}
             </div>

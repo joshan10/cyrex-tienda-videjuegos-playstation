@@ -90,7 +90,7 @@ export function TopProductosChart({ data = [], title = "Top Productos Más Vendi
         <BarChart data={data} layout="vertical">
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" />
           <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-muted)' }} />
-          <YAxis dataKey="nombre" type="category" width={150} tick={{ fontSize: 11, fill: 'var(--color-muted)' }} />
+          <YAxis dataKey="nombre" type="category" width={110} tick={{ fontSize: 10, fill: 'var(--color-muted)' }} />
           <Tooltip
             contentStyle={{
               backgroundColor: 'var(--color-bg)',
