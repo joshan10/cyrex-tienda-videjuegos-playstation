@@ -4,6 +4,7 @@ import { authAPI, ordenesAPI, ventasAPI } from '../../services/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import { useAlert } from '../../components/ui/alertContext';
 import {
   LIMITS,
   filterAlpha,
@@ -28,7 +29,8 @@ const profileValidators = {
 };
 
 export default function ClienteDashboard() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState('perfil');
   const [ordenes, setOrdenes] = useState([]);
   const [facturasMap, setFacturasMap] = useState({});
@@ -104,13 +106,21 @@ export default function ClienteDashboard() {
 
     setSavingProfile(true);
     try {
-      await authAPI.updateProfile(profileForm);
+      const data = await authAPI.updateProfile(profileForm);
       setEditingProfile(false);
-      alert('Perfil actualizado exitosamente');
-      window.location.reload();
+      updateUser(data?.user);
+      showAlert({
+        type: 'success',
+        title: 'Perfil actualizado',
+        message: 'Tu información personal se guardó con éxito.'
+      });
     } catch (err) {
       console.error('Error actualizando perfil:', err);
-      alert(err?.error?.message || 'Error al actualizar el perfil');
+      showAlert({
+        type: 'error',
+        title: 'No se pudo actualizar',
+        message: err?.error?.message || 'Error al actualizar el perfil'
+      });
     } finally {
       setSavingProfile(false);
     }
@@ -120,7 +130,11 @@ export default function ClienteDashboard() {
     const factura = facturasMap[orden.id];
 
     if (!factura) {
-      alert('Esta orden todavía no tiene una factura generada.');
+      showAlert({
+        type: 'info',
+        title: 'Factura no disponible',
+        message: 'Esta orden todavía no tiene una factura generada.'
+      });
       return;
     }
 
@@ -129,7 +143,11 @@ export default function ClienteDashboard() {
       await ventasAPI.downloadInvoicePdf(factura.numero_factura);
     } catch (err) {
       console.error(err);
-      alert('No fue posible descargar la factura.');
+      showAlert({
+        type: 'error',
+        title: 'Descarga fallida',
+        message: 'No fue posible descargar la factura.'
+      });
     } finally {
       setDownloadingId(null);
     }

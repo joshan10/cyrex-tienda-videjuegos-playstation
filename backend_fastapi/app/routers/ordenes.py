@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -29,12 +29,13 @@ def stats(db: Session = Depends(get_db)):
 )
 def get_all(
     user: dict = Depends(current_user),
+    search: str | None = Query(default=None, description="Buscar por nombre, apellido o correo del cliente"),
     paginacion: Paginacion = Depends(get_paginacion),
     db: Session = Depends(get_db),
 ):
     user_id = user["id"] if user["rol_nombre"] == "Cliente" else None
-    total = count_orders(db, user_id)
-    orders = get_user_orders(db, user_id)
+    total = count_orders(db, user_id, search)
+    orders = get_user_orders(db, user_id, search)
     paginated = orders[paginacion.skip : paginacion.skip + paginacion.size]
     return {
         "items": [order_view(db, o) for o in paginated],

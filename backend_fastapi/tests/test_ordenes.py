@@ -39,6 +39,44 @@ def test_orden_no_encontrada(client, admin_user):
     assert response.status_code == 404
 
 
+def test_ordenes_busqueda_por_cliente(client, db, admin_user, customer_user):
+    product = Producto(nombre="Juego busqueda", precio=30.0, stock=5, plataforma="PlayStation")
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+
+    customer_headers = login_headers(client, customer_user.correo, "Cliente1234!")
+    admin_headers = login_headers(client, admin_user.correo, "Admin1234!")
+
+    response = client.post(
+        "/api/ordenes",
+        headers=customer_headers,
+        json={"items": [{"producto_id": product.id, "cantidad": 1}], "direccion_envio": "Calle Busqueda 1"},
+    )
+    assert response.status_code == 201
+
+    response = client.get("/api/ordenes?search=Cliente", headers=admin_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["usuario_nombre"] == "Cliente"
+
+    response = client.get("/api/ordenes?search=cliente@test.com", headers=admin_headers)
+    assert response.json()["total"] == 1
+
+    response = client.get("/api/ordenes?search=NoExisteEsto", headers=admin_headers)
+    assert response.status_code == 200
+    assert response.json()["total"] == 0
+    assert response.json()["items"] == []
+
+    response = client.get("/api/ordenes?size=1&page=1", headers=admin_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["size"] == 1
+    assert data["pages"] == data["total"]
+
+
 def test_orden_stock_insuficiente(client, db, admin_user, customer_user):
     product = Producto(nombre="Juego Sin Stock", precio=30.0, stock=1, plataforma="PlayStation")
     db.add(product)

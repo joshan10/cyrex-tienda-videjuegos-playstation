@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -24,9 +24,13 @@ router = APIRouter(
     summary="Listar todos los usuarios",
     responses={200: {"description": "Lista paginada de usuarios"}, 401: {"description": "No autenticado"}, 403: {"description": "Acceso denegado"}},
 )
-def get_all(paginacion: Paginacion = Depends(get_paginacion), db: Session = Depends(get_db)):
-    total = count_users(db)
-    users = get_all_users(db)
+def get_all(
+    search: str | None = Query(default=None, description="Buscar por nombre, apellido o correo"),
+    paginacion: Paginacion = Depends(get_paginacion),
+    db: Session = Depends(get_db),
+):
+    total = count_users(db, search)
+    users = get_all_users(db, search)
     paginated = users[paginacion.skip : paginacion.skip + paginacion.size]
     return {
         "items": [user_view(db, u) for u in paginated],

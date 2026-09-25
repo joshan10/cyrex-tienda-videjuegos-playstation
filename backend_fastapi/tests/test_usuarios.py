@@ -43,6 +43,44 @@ def test_usuario_no_encontrado(client, admin_user):
     assert response.status_code == 404
 
 
+def test_usuarios_busqueda_y_paginacion(client, admin_user):
+    admin_headers = login_headers(client, admin_user.correo, "Admin1234!")
+    client.post(
+        "/api/usuarios",
+        headers=admin_headers,
+        json={
+            "nombre": "Buscame",
+            "apellido": "PorNombre",
+            "tipo_documento": "cc",
+            "numero_documento": "100000010",
+            "direccion": "Calle Busqueda 1",
+            "telefono": "3000000010",
+            "correo": "busqueda@test.com",
+            "password": "Busqueda1234!",
+        },
+    )
+
+    response = client.get("/api/usuarios?search=Buscame", headers=admin_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["nombre"] == "Buscame"
+
+    response = client.get("/api/usuarios?search=PorCorreoInexistente", headers=admin_headers)
+    assert response.status_code == 200
+    assert response.json()["total"] == 0
+    assert response.json()["items"] == []
+
+    response = client.get("/api/usuarios?page=1&size=1", headers=admin_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["size"] == 1
+    assert data["total"] >= 2
+    assert data["pages"] == data["total"]
+
+
 def test_usuario_correo_duplicado(client, admin_user):
     admin_headers = login_headers(client, admin_user.correo, "Admin1234!")
     client.post(

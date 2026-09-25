@@ -160,27 +160,60 @@ def count_services(db: Session) -> int:
 
 # --- Funciones de consulta para usuarios ---
 
-def get_all_users(db: Session) -> list[Usuario]:
-    return list(db.scalars(select(Usuario).order_by(Usuario.created_at.desc())).all())
+def _user_search_filters(search: str | None):
+    if not search:
+        return []
+    term = f"%{search}%"
+    return [
+        (Usuario.nombre.like(term))
+        | (Usuario.apellido.like(term))
+        | (Usuario.correo.like(term))
+    ]
 
 
-def count_users(db: Session) -> int:
-    return db.scalar(select(func.count(Usuario.id)))
+def get_all_users(db: Session, search: str | None = None) -> list[Usuario]:
+    query = select(Usuario)
+    for condition in _user_search_filters(search):
+        query = query.where(condition)
+    return list(db.scalars(query.order_by(Usuario.created_at.desc())).all())
+
+
+def count_users(db: Session, search: str | None = None) -> int:
+    query = select(func.count(Usuario.id))
+    for condition in _user_search_filters(search):
+        query = query.where(condition)
+    return db.scalar(query)
 
 
 # --- Funciones de consulta para órdenes ---
 
-def get_user_orders(db: Session, user_id: int | None = None) -> list[Orden]:
-    query = select(Orden).order_by(Orden.created_at.desc())
+def get_user_orders(db: Session, user_id: int | None = None, search: str | None = None) -> list[Orden]:
+    query = select(Orden)
     if user_id:
         query = query.where(Orden.usuario_id == user_id)
-    return list(db.scalars(query).all())
+    if search:
+        term = f"%{search}%"
+        query = query.join(Usuario, Usuario.id == Orden.usuario_id).where(
+            (Usuario.nombre.like(term))
+            | (Usuario.apellido.like(term))
+            | (Usuario.correo.like(term))
+            | (func.concat(Usuario.nombre, " ", Usuario.apellido).like(term))
+        )
+    return list(db.scalars(query.order_by(Orden.created_at.desc())).all())
 
 
-def count_orders(db: Session, user_id: int | None = None) -> int:
+def count_orders(db: Session, user_id: int | None = None, search: str | None = None) -> int:
     query = select(func.count(Orden.id))
     if user_id:
         query = query.where(Orden.usuario_id == user_id)
+    if search:
+        term = f"%{search}%"
+        query = query.join(Usuario, Usuario.id == Orden.usuario_id).where(
+            (Usuario.nombre.like(term))
+            | (Usuario.apellido.like(term))
+            | (Usuario.correo.like(term))
+            | (func.concat(Usuario.nombre, " ", Usuario.apellido).like(term))
+        )
     return db.scalar(query)
 
 

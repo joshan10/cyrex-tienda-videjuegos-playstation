@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import LayoutPrincipal from '../components/layout/LayoutPrincipal';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import { useAlert } from '../components/ui/alertContext';
 import { authAPI } from '../services/api';
 import { LIMITS, filterMax, validateEmail } from '../utils/validators';
 
@@ -12,6 +13,7 @@ export default function RecuperarContrasena() {
   const [apiError, setApiError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
 
   const handleChange = (event) => {
     const value = filterMax(LIMITS.correo.max)(event.target.value);
@@ -37,7 +39,7 @@ export default function RecuperarContrasena() {
         navigate(`/restablecer-contrasena?token=${response.dev_token}`);
       } else {
         // En produccion se enviaria el correo
-        alert(response.message);
+        showAlert({ type: 'info', title: 'Correo enviado', message: response.message });
       }
     } catch (err) {
       setApiError(err.error || 'Ocurrió un error al procesar la solicitud.');

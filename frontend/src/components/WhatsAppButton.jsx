@@ -17,22 +17,26 @@ export default function WhatsAppButton({
       href={whatsappUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="group fixed bottom-6 right-6 z-50 flex items-center gap-3"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className="group fixed bottom-6 right-6 z-50"
       aria-label="Contactar por WhatsApp"
     >
-      {/* Tooltip */}
-      <span
-        className={`rounded-xl bg-[var(--color-surface)] border border-[var(--color-line)] px-4 py-2 text-sm font-medium text-[var(--color-text)] shadow-lg transition-all duration-300 ${
-          isHovered ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
-        }`}
-      >
-        ¿Necesitas ayuda?
+      {/* Tooltip: se muestra solo mientras el cursor está sobre el botón */}
+      <span className="pointer-events-none absolute right-full top-1/2 mr-3 -translate-y-1/2">
+        <span
+          className={`block whitespace-nowrap rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-2 text-sm font-medium text-[var(--color-text)] shadow-lg transition-all duration-300 ${
+            isHovered ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
+          }`}
+        >
+          ¿Necesitas ayuda?
+        </span>
       </span>
 
       {/* Botón */}
-      <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] shadow-[0_6px_24px_rgba(37,211,102,0.4)] transition-all duration-300 hover:scale-110 hover:shadow-[0_8px_32px_rgba(37,211,102,0.55)]">
+      <div
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] shadow-[0_6px_24px_rgba(37,211,102,0.4)] transition-all duration-300 hover:scale-110 hover:shadow-[0_8px_32px_rgba(37,211,102,0.55)]"
+      >
         {/* Ping animation */}
         <span className="absolute inset-0 animate-ping rounded-full bg-[#25D366] opacity-20" />
 

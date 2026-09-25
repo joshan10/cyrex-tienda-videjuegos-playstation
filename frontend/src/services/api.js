@@ -101,7 +101,14 @@ export const authAPI = {
 // USUARIOS
 // =====================================================
 export const usuariosAPI = {
-  getAll: () => request('/usuarios'),
+  getAll: (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, val]) => {
+      if (val) params.append(key, val);
+    });
+    const query = params.toString();
+    return request(`/usuarios${query ? `?${query}` : ''}`);
+  },
   getById: (id) => request(`/usuarios/${id}`),
   create: (data) =>
     request('/usuarios', {
@@ -166,7 +173,14 @@ export const categoriasAPI = {
 // ORDENES
 // =====================================================
 export const ordenesAPI = {
-  getAll: () => request('/ordenes'),
+  getAll: (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, val]) => {
+      if (val) params.append(key, val);
+    });
+    const query = params.toString();
+    return request(`/ordenes${query ? `?${query}` : ''}`);
+  },
   getById: (id) => request(`/ordenes/${id}`),
   create: (data) =>
     request('/ordenes', {

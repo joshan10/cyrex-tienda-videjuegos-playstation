@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { usuariosAPI, productosAPI, ordenesAPI, ventasAPI } from '../../services/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import Pagination from '../../components/ui/Pagination';
+import { useAlert } from '../../components/ui/alertContext';
 import { uploadAPI } from '../../services/api';
 import { VentasBarChart, VentasLineChart, TopProductosChart, ResumenCards } from '../../components/dashboard/VentasCharts';
 import {
@@ -23,6 +25,8 @@ import {
 } from '../../utils/validators';
 
 const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:4000'; // base para uploads
+
+const PAGE_SIZE = 10;
 
 const productValidators = {
   nombre: validateProductoNombre,
@@ -56,12 +60,24 @@ const tabs = [
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const { showAlert, showConfirm } = useAlert();
   const [activeTab, setActiveTab] = useState('resumen');
   const [usuarios, setUsuarios] = useState([]);
+  const [usuariosMeta, setUsuariosMeta] = useState({ page: 1, pages: 0, total: 0 });
+  const [usuariosSearch, setUsuariosSearch] = useState('');
+  const [usuariosLoading, setUsuariosLoading] = useState(false);
   const [productos, setProductos] = useState([]);
+  const [productosMeta, setProductosMeta] = useState({ page: 1, pages: 0, total: 0 });
+  const [productosSearch, setProductosSearch] = useState('');
+  const [productosLoading, setProductosLoading] = useState(false);
   const [ordenes, setOrdenes] = useState([]);
+  const [ordenesMeta, setOrdenesMeta] = useState({ page: 1, pages: 0, total: 0 });
+  const [ordenesSearch, setOrdenesSearch] = useState('');
+  const [ordenesLoading, setOrdenesLoading] = useState(false);
   const [stats, setStats] = useState(null);
   const [facturas, setFacturas] = useState([]);
+  const [facturasMeta, setFacturasMeta] = useState({ page: 1, pages: 0, total: 0 });
+  const [facturasLoading, setFacturasLoading] = useState(false);
   const [facturasStats, setFacturasStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [facturaFilters, setFacturaFilters] = useState({
@@ -97,22 +113,94 @@ export default function AdminDashboard() {
   const [reporteBusy, setReporteBusy] = useState(false);
   const [exporting, setExporting] = useState(null);
 
+  const loadUsuarios = async (page = 1, search = usuariosSearch) => {
+    setUsuariosLoading(true);
+    try {
+      const data = await usuariosAPI.getAll({ page, size: PAGE_SIZE, search });
+      const items = data.items || [];
+      // Si la página quedó vacía (ej. tras eliminar el último de la página), retrocede
+      if (items.length === 0 && page > 1) {
+        await loadUsuarios(page - 1, search);
+        return;
+      }
+      setUsuarios(items);
+      setUsuariosMeta({ page: data.page || page, pages: data.pages || 0, total: data.total || 0 });
+    } catch (err) {
+      console.error('Error cargando usuarios:', err);
+    } finally {
+      setUsuariosLoading(false);
+    }
+  };
+
+  const loadProductos = async (page = 1, search = productosSearch) => {
+    setProductosLoading(true);
+    try {
+      const data = await productosAPI.getAll({ page, size: PAGE_SIZE, search });
+      const items = data.items || [];
+      if (items.length === 0 && page > 1) {
+        await loadProductos(page - 1, search);
+        return;
+      }
+      setProductos(items);
+      setProductosMeta({ page: data.page || page, pages: data.pages || 0, total: data.total || 0 });
+    } catch (err) {
+      console.error('Error cargando productos:', err);
+    } finally {
+      setProductosLoading(false);
+    }
+  };
+
+  const loadOrdenes = async (page = 1, search = ordenesSearch) => {
+    setOrdenesLoading(true);
+    try {
+      const data = await ordenesAPI.getAll({ page, size: PAGE_SIZE, search });
+      const items = data.items || [];
+      if (items.length === 0 && page > 1) {
+        await loadOrdenes(page - 1, search);
+        return;
+      }
+      setOrdenes(items);
+      setOrdenesMeta({ page: data.page || page, pages: data.pages || 0, total: data.total || 0 });
+    } catch (err) {
+      console.error('Error cargando órdenes:', err);
+    } finally {
+      setOrdenesLoading(false);
+    }
+  };
+
+  const buildFacturaFilters = () => {
+    const filters = {};
+    if (facturaFilters.numero_factura) filters.numero_factura = facturaFilters.numero_factura;
+    if (facturaFilters.cliente_correo) filters.cliente_correo = facturaFilters.cliente_correo;
+    if (facturaFilters.fecha_desde) filters.fecha_desde = facturaFilters.fecha_desde;
+    if (facturaFilters.fecha_hasta) filters.fecha_hasta = facturaFilters.fecha_hasta;
+    return filters;
+  };
+
+  const loadFacturas = async (page = 1, filters = buildFacturaFilters()) => {
+    setFacturasLoading(true);
+    try {
+      const data = await ventasAPI.getAll({ ...filters, page, size: PAGE_SIZE });
+      const items = data.items || [];
+      if (items.length === 0 && page > 1) {
+        await loadFacturas(page - 1, filters);
+        return;
+      }
+      setFacturas(items);
+      setFacturasMeta({ page: data.page || page, pages: data.pages || 0, total: data.total || 0 });
+    } finally {
+      setFacturasLoading(false);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [usersData, productsData, ordersData, statsData] = await Promise.all([
-        usuariosAPI.getAll(),
-        productosAPI.getAll(),
-        ordenesAPI.getAll(),
-        ordenesAPI.getStats()
-      ]);
-      setUsuarios(usersData.items || []);
-      setProductos(productsData.items || []);
-      setOrdenes(ordersData.items || []);
+      const statsData = await ordenesAPI.getStats();
       setStats(statsData.stats || null);
 
       // Cargar datos de ventas de forma independiente (no bloquea el resto)
-      ventasAPI.getAll().then(d => setFacturas(d.items || [])).catch(() => {});
+      loadFacturas(1).catch(() => {});
       ventasAPI.getStats().then(d => setFacturasStats(d.stats || null)).catch(() => {});
     } catch (err) {
       console.error('Error cargando datos:', err);
@@ -121,11 +209,48 @@ export default function AdminDashboard() {
     }
   };
 
-  /* eslint-disable react-hooks/set-state-in-effect */
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     loadData();
+    loadUsuarios(1, '');
+    loadProductos(1, '');
+    loadOrdenes(1, '');
   }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+
+  // Búsqueda con debounce (siempre vuelve a la página 1)
+  const firstUsuarioSearch = useRef(true);
+  useEffect(() => {
+    if (firstUsuarioSearch.current) {
+      firstUsuarioSearch.current = false;
+      return undefined;
+    }
+    const timer = setTimeout(() => loadUsuarios(1, usuariosSearch), 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuariosSearch]);
+
+  const firstProductoSearch = useRef(true);
+  useEffect(() => {
+    if (firstProductoSearch.current) {
+      firstProductoSearch.current = false;
+      return undefined;
+    }
+    const timer = setTimeout(() => loadProductos(1, productosSearch), 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productosSearch]);
+
+  const firstOrdenSearch = useRef(true);
+  useEffect(() => {
+    if (firstOrdenSearch.current) {
+      firstOrdenSearch.current = false;
+      return undefined;
+    }
+    const timer = setTimeout(() => loadOrdenes(1, ordenesSearch), 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordenesSearch]);
 
   // --- Usuarios ---
   const handleToggleUserStatus = async (id, estadoActual) => {
@@ -133,25 +258,50 @@ export default function AdminDashboard() {
     setBusyUserId(id);
     try {
       await usuariosAPI.changeStatus(id, nuevoEstado);
-      loadData();
+      await loadUsuarios(usuariosMeta.page, usuariosSearch);
+      showAlert({
+        type: 'success',
+        title: nuevoEstado === 'activo' ? 'Usuario activado' : 'Usuario desactivado',
+        message: `El estado del usuario se cambió a "${nuevoEstado}" con éxito.`
+      });
     } catch (err) {
       console.error(err);
+      showAlert({
+        type: 'error',
+        title: 'No se pudo cambiar el estado',
+        message: err?.error?.message || 'Intenta de nuevo más tarde.'
+      });
     } finally {
       setBusyUserId(null);
     }
   };
 
   const handleDeleteUser = async (id) => {
-    if (confirm('¿Eliminar este usuario definitivamente? Esta acción no se puede deshacer.')) {
-      setBusyUserId(id);
-      try {
-        await usuariosAPI.remove(id);
-        loadData();
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setBusyUserId(null);
-      }
+    const confirmed = await showConfirm({
+      title: 'Eliminar usuario',
+      message: '¿Eliminar este usuario definitivamente? Esta acción no se puede deshacer.',
+      confirmText: 'Sí, eliminar'
+    });
+    if (!confirmed) return;
+
+    setBusyUserId(id);
+    try {
+      await usuariosAPI.remove(id);
+      await loadUsuarios(usuariosMeta.page, usuariosSearch);
+      showAlert({
+        type: 'success',
+        title: 'Usuario eliminado',
+        message: 'El usuario se eliminó definitivamente.'
+      });
+    } catch (err) {
+      console.error(err);
+      showAlert({
+        type: 'error',
+        title: 'No se pudo eliminar',
+        message: err?.error?.message || 'Intenta de nuevo más tarde.'
+      });
+    } finally {
+      setBusyUserId(null);
     }
   };
 
@@ -197,10 +347,19 @@ export default function AdminDashboard() {
         await usuariosAPI.update(editingUser.id, userForm);
       }
       setShowUserModal(false);
-      loadData();
+      await loadUsuarios(usuariosMeta.page, usuariosSearch);
+      showAlert({
+        type: 'success',
+        title: 'Usuario actualizado',
+        message: 'Los datos del usuario se guardaron con éxito.'
+      });
     } catch (err) {
       console.error(err);
-      alert(err?.error?.message || 'Error al guardar el usuario');
+      showAlert({
+        type: 'error',
+        title: 'No se pudo guardar',
+        message: err?.error?.message || 'Error al guardar el usuario'
+      });
     } finally {
       setSavingUser(false);
     }
@@ -278,7 +437,14 @@ export default function AdminDashboard() {
       }
       setShowProductModal(false);
       setImageFile(null);
-      loadData();
+      await loadProductos(editingProduct ? productosMeta.page : 1, productosSearch);
+      showAlert({
+        type: 'success',
+        title: editingProduct ? 'Producto actualizado' : 'Producto creado',
+        message: editingProduct
+          ? 'Los cambios se guardaron con éxito.'
+          : 'El producto se agregó con éxito al catálogo.'
+      });
     } catch (err) {
       console.error(err);
       const msg =
@@ -287,7 +453,7 @@ export default function AdminDashboard() {
         (typeof err?.error === 'string' ? err.error : null) ||
         err?.message ||
         'Error al guardar el producto';
-      alert(msg);
+      showAlert({ type: 'error', title: 'No se pudo guardar', message: msg });
     } finally {
       setSavingProduct(false);
     }
@@ -297,25 +463,50 @@ export default function AdminDashboard() {
     setBusyProductId(id);
     try {
       await productosAPI.changeStatus(id, 'inactivo');
-      loadData();
+      await loadProductos(productosMeta.page, productosSearch);
+      showAlert({
+        type: 'success',
+        title: 'Producto desactivado',
+        message: 'El producto ya no aparece disponible en la tienda.'
+      });
     } catch (err) {
       console.error(err);
+      showAlert({
+        type: 'error',
+        title: 'No se pudo desactivar',
+        message: err?.error?.message || 'Intenta de nuevo más tarde.'
+      });
     } finally {
       setBusyProductId(null);
     }
   };
 
   const handleDeleteProductPermanent = async (id) => {
-    if (confirm('¿Eliminar este producto definitivamente? Esta acción no se puede deshacer.')) {
-      setBusyProductId(id);
-      try {
-        await productosAPI.remove(id);
-        loadData();
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setBusyProductId(null);
-      }
+    const confirmed = await showConfirm({
+      title: 'Eliminar producto',
+      message: '¿Eliminar este producto definitivamente? Esta acción no se puede deshacer.',
+      confirmText: 'Sí, eliminar'
+    });
+    if (!confirmed) return;
+
+    setBusyProductId(id);
+    try {
+      await productosAPI.remove(id);
+      await loadProductos(productosMeta.page, productosSearch);
+      showAlert({
+        type: 'success',
+        title: 'Producto eliminado',
+        message: 'El producto se eliminó definitivamente.'
+      });
+    } catch (err) {
+      console.error(err);
+      showAlert({
+        type: 'error',
+        title: 'No se pudo eliminar',
+        message: err?.error?.message || 'Intenta de nuevo más tarde.'
+      });
+    } finally {
+      setBusyProductId(null);
     }
   };
 
@@ -324,27 +515,42 @@ export default function AdminDashboard() {
     setUpdatingOrderId(id);
     try {
       await ordenesAPI.updateEstado(id, estado);
-      loadData();
+      await loadOrdenes(ordenesMeta.page, ordenesSearch);
+      ordenesAPI.getStats().then(d => setStats(d.stats || null)).catch(() => {});
+      showAlert({
+        type: 'success',
+        title: 'Orden actualizada',
+        message: `La orden #${id} ahora está "${estado}".`
+      });
     } catch (err) {
       console.error(err);
+      showAlert({
+        type: 'error',
+        title: 'No se pudo actualizar',
+        message: err?.error?.message || 'Error al actualizar el estado de la orden'
+      });
     } finally {
       setUpdatingOrderId(null);
     }
   };
 
   // --- Facturas ---
+  const handleFacturaPage = async (page) => {
+    try {
+      await loadFacturas(page);
+    } catch (err) {
+      console.error(err);
+      showAlert({ type: 'error', title: 'Error al cargar', message: err?.error?.message || 'No se pudieron cargar las facturas.' });
+    }
+  };
+
   const handleFacturaFilter = async () => {
     setFacturaBusy(true);
     try {
-      const filters = {};
-      if (facturaFilters.numero_factura) filters.numero_factura = facturaFilters.numero_factura;
-      if (facturaFilters.cliente_correo) filters.cliente_correo = facturaFilters.cliente_correo;
-      if (facturaFilters.fecha_desde) filters.fecha_desde = facturaFilters.fecha_desde;
-      if (facturaFilters.fecha_hasta) filters.fecha_hasta = facturaFilters.fecha_hasta;
-      const data = await ventasAPI.getAll(filters);
-      setFacturas(data.items || []);
+      await loadFacturas(1, buildFacturaFilters());
     } catch (err) {
       console.error(err);
+      showAlert({ type: 'error', title: 'Error al buscar', message: err?.error?.message || 'No se pudieron cargar las facturas.' });
     } finally {
       setFacturaBusy(false);
     }
@@ -354,10 +560,10 @@ export default function AdminDashboard() {
     setFacturaFilters({ numero_factura: '', cliente_correo: '', fecha_desde: '', fecha_hasta: '' });
     setFacturaBusy(true);
     try {
-      const data = await ventasAPI.getAll();
-      setFacturas(data.items || []);
+      await loadFacturas(1, {});
     } catch (err) {
       console.error(err);
+      showAlert({ type: 'error', title: 'Error al cargar', message: err?.error?.message || 'No se pudieron cargar las facturas.' });
     } finally {
       setFacturaBusy(false);
     }
@@ -369,7 +575,11 @@ export default function AdminDashboard() {
       await ventasAPI.downloadInvoicePdf(numero);
     } catch (err) {
       console.error(err);
-      alert('No fue posible descargar la factura.');
+      showAlert({
+        type: 'error',
+        title: 'Descarga fallida',
+        message: 'No fue posible descargar la factura.'
+      });
     } finally {
       setDownloadingFactura(null);
     }
@@ -394,7 +604,7 @@ export default function AdminDashboard() {
       await ventasAPI.downloadExcel(reporteFechas.fecha_inicio, reporteFechas.fecha_fin);
     } catch (err) {
       console.error(err);
-      alert('Error al exportar Excel');
+      showAlert({ type: 'error', title: 'Error al exportar', message: 'No se pudo generar el archivo Excel.' });
     } finally {
       setExporting(null);
     }
@@ -406,7 +616,7 @@ export default function AdminDashboard() {
       await ventasAPI.downloadPdf(reporteFechas.fecha_inicio, reporteFechas.fecha_fin);
     } catch (err) {
       console.error(err);
-      alert('Error al exportar PDF');
+      showAlert({ type: 'error', title: 'Error al exportar', message: 'No se pudo generar el archivo PDF.' });
     } finally {
       setExporting(null);
     }
@@ -457,9 +667,9 @@ export default function AdminDashboard() {
           <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { label: 'Usuarios', value: usuarios.length, color: 'text-blue-400' },
-                { label: 'Productos', value: productos.length, color: 'text-purple-400' },
-                { label: 'Órdenes', value: ordenes.length, color: 'text-amber-400' },
+                { label: 'Usuarios', value: usuariosMeta.total, color: 'text-blue-400' },
+                { label: 'Productos', value: productosMeta.total, color: 'text-purple-400' },
+                { label: 'Órdenes', value: ordenesMeta.total, color: 'text-amber-400' },
                 { label: 'Ingresos', value: stats ? formatPrice(stats.ingresos_totales) : '$0', color: 'text-emerald-400' },
                 { label: 'Facturas', value: facturasStats?.num_facturas || 0, color: 'text-cyan-400' },
                 { label: 'Facturado', value: facturasStats ? formatPrice(facturasStats.total_facturado) : '$0', color: 'text-emerald-400' },
@@ -499,7 +709,33 @@ export default function AdminDashboard() {
 
         {activeTab === 'usuarios' && (
           <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
-            <div className="overflow-x-auto">
+            <div className="flex flex-col gap-3 border-b border-[var(--color-line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-text)]">Usuarios</h3>
+                <p className="text-xs text-[var(--color-muted)]">
+                  {usuariosMeta.total} {usuariosMeta.total === 1 ? 'usuario registrado' : 'usuarios registrados'}
+                </p>
+              </div>
+              <div className="relative w-full sm:w-72">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                </svg>
+                <input
+                  type="search"
+                  value={usuariosSearch}
+                  onChange={(e) => setUsuariosSearch(e.target.value)}
+                  placeholder="Buscar por nombre o correo..."
+                  aria-label="Buscar usuarios"
+                  className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] py-2.5 pl-9 pr-3 text-sm text-[var(--color-text)] outline-none transition placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)]"
+                />
+              </div>
+            </div>
+            <div className={`overflow-x-auto transition-opacity duration-200 ${usuariosLoading ? 'opacity-60' : ''}`}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-widest text-[var(--color-muted)]">
@@ -555,19 +791,59 @@ export default function AdminDashboard() {
                       </td>
                     </tr>
                   ))}
+                  {usuarios.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
+                        {usuariosSearch
+                          ? `No se encontraron usuarios que coincidan con "${usuariosSearch}".`
+                          : 'No hay usuarios registrados aún.'}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
+            <Pagination
+              page={usuariosMeta.page}
+              pages={usuariosMeta.pages}
+              total={usuariosMeta.total}
+              size={PAGE_SIZE}
+              disabled={usuariosLoading}
+              onChange={(p) => loadUsuarios(p, usuariosSearch)}
+            />
           </div>
         )}
 
         {activeTab === 'productos' && (
-          <div>
-            <div className="mb-4 flex justify-end">
-              <Button onClick={() => openProductModal()}>+ Nuevo Producto</Button>
+          <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-4 sm:p-5">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative w-full lg:max-w-xs">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                </svg>
+                <input
+                  type="search"
+                  value={productosSearch}
+                  onChange={(e) => setProductosSearch(e.target.value)}
+                  placeholder="Buscar producto por nombre..."
+                  aria-label="Buscar productos"
+                  className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] py-2.5 pl-9 pr-3 text-sm text-[var(--color-text)] outline-none transition placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)]"
+                />
+              </div>
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between lg:justify-end">
+                <p className="text-xs text-[var(--color-muted)]">
+                  {productosMeta.total} {productosMeta.total === 1 ? 'producto' : 'productos'} en catálogo
+                </p>
+                <Button onClick={() => openProductModal()}>+ Nuevo Producto</Button>
+              </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className={`grid gap-4 transition-opacity duration-200 sm:grid-cols-2 lg:grid-cols-3 ${productosLoading ? 'opacity-60' : ''}`}>
               {productos.map((p) => (
                 <div key={p.id} className="overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
                   <div className="h-48 w-full overflow-hidden bg-[var(--color-bg)]">
@@ -614,13 +890,54 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               ))}
+              {productos.length === 0 && (
+                <div className="col-span-full rounded-xl border border-dashed border-[var(--color-line)] px-5 py-10 text-center text-sm text-[var(--color-muted)]">
+                  {productosSearch
+                    ? `No se encontraron productos que coincidan con "${productosSearch}".`
+                    : 'No hay productos registrados aún.'}
+                </div>
+              )}
             </div>
+            <Pagination
+              page={productosMeta.page}
+              pages={productosMeta.pages}
+              total={productosMeta.total}
+              size={PAGE_SIZE}
+              disabled={productosLoading}
+              onChange={(p) => loadProductos(p, productosSearch)}
+            />
           </div>
         )}
 
         {activeTab === 'ventas' && (
           <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
-            <div className="overflow-x-auto">
+            <div className="flex flex-col gap-3 border-b border-[var(--color-line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-text)]">Ventas</h3>
+                <p className="text-xs text-[var(--color-muted)]">
+                  {ordenesMeta.total} {ordenesMeta.total === 1 ? 'orden registrada' : 'órdenes registradas'}
+                </p>
+              </div>
+              <div className="relative w-full sm:w-72">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                </svg>
+                <input
+                  type="search"
+                  value={ordenesSearch}
+                  onChange={(e) => setOrdenesSearch(e.target.value)}
+                  placeholder="Buscar por cliente..."
+                  aria-label="Buscar ventas por cliente"
+                  className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] py-2.5 pl-9 pr-3 text-sm text-[var(--color-text)] outline-none transition placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)]"
+                />
+              </div>
+            </div>
+            <div className={`overflow-x-auto transition-opacity duration-200 ${ordenesLoading ? 'opacity-60' : ''}`}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-widest text-[var(--color-muted)]">
@@ -662,13 +979,23 @@ export default function AdminDashboard() {
                   {ordenes.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
-                        No hay órdenes registradas aún.
+                        {ordenesSearch
+                          ? `No se encontraron órdenes del cliente "${ordenesSearch}".`
+                          : 'No hay órdenes registradas aún.'}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+            <Pagination
+              page={ordenesMeta.page}
+              pages={ordenesMeta.pages}
+              total={ordenesMeta.total}
+              size={PAGE_SIZE}
+              disabled={ordenesLoading}
+              onChange={(p) => loadOrdenes(p, ordenesSearch)}
+            />
           </div>
         )}
 
@@ -714,7 +1041,15 @@ export default function AdminDashboard() {
 
             {/* Tabla de facturas */}
             <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
-              <div className="overflow-x-auto">
+              <div className="flex items-center justify-between gap-3 border-b border-[var(--color-line)] px-5 py-4">
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-text)]">Facturas</h3>
+                  <p className="text-xs text-[var(--color-muted)]">
+                    {facturasMeta.total} {facturasMeta.total === 1 ? 'factura encontrada' : 'facturas encontradas'}
+                  </p>
+                </div>
+              </div>
+              <div className={`overflow-x-auto transition-opacity duration-200 ${facturasLoading || facturaBusy ? 'opacity-60' : ''}`}>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-widest text-[var(--color-muted)]">
@@ -760,13 +1095,21 @@ export default function AdminDashboard() {
                     {facturas.length === 0 && (
                       <tr>
                         <td colSpan={9} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
-                          No hay facturas registradas aún.
+                          No se encontraron facturas con los filtros aplicados.
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
+              <Pagination
+                page={facturasMeta.page}
+                pages={facturasMeta.pages}
+                total={facturasMeta.total}
+                size={PAGE_SIZE}
+                disabled={facturasLoading || facturaBusy}
+                onChange={handleFacturaPage}
+              />
             </div>
           </div>
         )}

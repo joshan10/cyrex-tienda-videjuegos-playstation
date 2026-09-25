@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { authAPI, productosAPI, ordenesAPI, ventasAPI } from '../../services/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import Pagination from '../../components/ui/Pagination';
+import { useAlert } from '../../components/ui/alertContext';
 import {
   LIMITS,
   filterAlpha,
@@ -30,12 +32,20 @@ const profileValidators = {
   telefono: validateTelefono
 };
 
+const PAGE_SIZE = 10;
+
 export default function EmpleadoDashboard() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState('productos');
   const [productos, setProductos] = useState([]);
   const [ordenes, setOrdenes] = useState([]);
+  const [ordenesMeta, setOrdenesMeta] = useState({ page: 1, pages: 0, total: 0 });
+  const [ordenesSearch, setOrdenesSearch] = useState('');
+  const [ordenesLoading, setOrdenesLoading] = useState(false);
   const [facturas, setFacturas] = useState([]);
+  const [facturasMeta, setFacturasMeta] = useState({ page: 1, pages: 0, total: 0 });
+  const [facturasLoading, setFacturasLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [facturaFilters, setFacturaFilters] = useState({
     numero_factura: '',
@@ -65,18 +75,57 @@ export default function EmpleadoDashboard() {
   const [facturaBusy, setFacturaBusy] = useState(false);
   const [downloadingId, setDownloadingId] = useState(null);
 
+  const loadOrdenes = async (page = 1, search = ordenesSearch) => {
+    setOrdenesLoading(true);
+    try {
+      const data = await ordenesAPI.getAll({ page, size: PAGE_SIZE, search });
+      const items = data.items || [];
+      if (items.length === 0 && page > 1) {
+        await loadOrdenes(page - 1, search);
+        return;
+      }
+      setOrdenes(items);
+      setOrdenesMeta({ page: data.page || page, pages: data.pages || 0, total: data.total || 0 });
+    } catch (err) {
+      console.error('Error cargando órdenes:', err);
+    } finally {
+      setOrdenesLoading(false);
+    }
+  };
+
+  const buildFacturaFilters = () => {
+    const filters = {};
+    if (facturaFilters.numero_factura) filters.numero_factura = facturaFilters.numero_factura;
+    if (facturaFilters.cliente_correo) filters.cliente_correo = facturaFilters.cliente_correo;
+    if (facturaFilters.fecha_desde) filters.fecha_desde = facturaFilters.fecha_desde;
+    if (facturaFilters.fecha_hasta) filters.fecha_hasta = facturaFilters.fecha_hasta;
+    return filters;
+  };
+
+  const loadFacturas = async (page = 1, filters = buildFacturaFilters()) => {
+    setFacturasLoading(true);
+    try {
+      const data = await ventasAPI.getAll({ ...filters, page, size: PAGE_SIZE });
+      const items = data.items || [];
+      if (items.length === 0 && page > 1) {
+        await loadFacturas(page - 1, filters);
+        return;
+      }
+      setFacturas(items);
+      setFacturasMeta({ page: data.page || page, pages: data.pages || 0, total: data.total || 0 });
+    } finally {
+      setFacturasLoading(false);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [productsData, ordersData] = await Promise.all([
-        productosAPI.getAll(),
-        ordenesAPI.getAll()
-      ]);
+      const productsData = await productosAPI.getAll();
       setProductos(productsData.items || []);
-      setOrdenes(ordersData.items || []);
 
       // Cargar facturas de forma independiente
-      ventasAPI.getAll().then(d => setFacturas(d.items || [])).catch(() => {});
+      loadFacturas(1).catch(() => {});
     } catch (err) {
       console.error('Error cargando datos:', err);
     } finally {
@@ -84,11 +133,23 @@ export default function EmpleadoDashboard() {
     }
   };
 
-  /* eslint-disable react-hooks/set-state-in-effect */
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     loadData();
+    loadOrdenes(1, '');
   }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+
+  const firstOrdenSearch = useRef(true);
+  useEffect(() => {
+    if (firstOrdenSearch.current) {
+      firstOrdenSearch.current = false;
+      return undefined;
+    }
+    const timer = setTimeout(() => loadOrdenes(1, ordenesSearch), 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordenesSearch]);
 
   const handleEditProfile = () => {
     setProfileForm({
@@ -121,13 +182,21 @@ export default function EmpleadoDashboard() {
 
     setSavingProfile(true);
     try {
-      await authAPI.updateProfile(profileForm);
+      const data = await authAPI.updateProfile(profileForm);
       setEditingProfile(false);
-      alert('Perfil actualizado exitosamente');
-      window.location.reload();
+      updateUser(data?.user);
+      showAlert({
+        type: 'success',
+        title: 'Perfil actualizado',
+        message: 'Tu información personal se guardó con éxito.'
+      });
     } catch (err) {
       console.error('Error actualizando perfil:', err);
-      alert(err?.error?.message || 'Error al actualizar el perfil');
+      showAlert({
+        type: 'error',
+        title: 'No se pudo actualizar',
+        message: err?.error?.message || 'Error al actualizar el perfil'
+      });
     } finally {
       setSavingProfile(false);
     }
@@ -160,9 +229,18 @@ export default function EmpleadoDashboard() {
       await productosAPI.update(editingProduct.id, data);
       setShowProductModal(false);
       loadData();
+      showAlert({
+        type: 'success',
+        title: 'Inventario actualizado',
+        message: `El producto "${editingProduct.nombre}" se actualizó con éxito.`
+      });
     } catch (err) {
       console.error(err);
-      alert(err?.error?.message || 'Error al actualizar el inventario');
+      showAlert({
+        type: 'error',
+        title: 'No se pudo actualizar',
+        message: err?.error?.message || 'Error al actualizar el inventario'
+      });
     } finally {
       setSavingProduct(false);
     }
@@ -172,27 +250,41 @@ export default function EmpleadoDashboard() {
     setUpdatingOrderId(id);
     try {
       await ordenesAPI.updateEstado(id, estado);
-      loadData();
+      await loadOrdenes(ordenesMeta.page, ordenesSearch);
+      showAlert({
+        type: 'success',
+        title: 'Orden actualizada',
+        message: `La orden #${id} ahora está "${estado}".`
+      });
     } catch (err) {
       console.error(err);
+      showAlert({
+        type: 'error',
+        title: 'No se pudo actualizar',
+        message: err?.error?.message || 'Error al actualizar el estado de la orden'
+      });
     } finally {
       setUpdatingOrderId(null);
     }
   };
 
   // --- Facturas ---
+  const handleFacturaPage = async (page) => {
+    try {
+      await loadFacturas(page);
+    } catch (err) {
+      console.error(err);
+      showAlert({ type: 'error', title: 'Error al cargar', message: err?.error?.message || 'No se pudieron cargar las facturas.' });
+    }
+  };
+
   const handleFacturaFilter = async () => {
     setFacturaBusy(true);
     try {
-      const filters = {};
-      if (facturaFilters.numero_factura) filters.numero_factura = facturaFilters.numero_factura;
-      if (facturaFilters.cliente_correo) filters.cliente_correo = facturaFilters.cliente_correo;
-      if (facturaFilters.fecha_desde) filters.fecha_desde = facturaFilters.fecha_desde;
-      if (facturaFilters.fecha_hasta) filters.fecha_hasta = facturaFilters.fecha_hasta;
-      const data = await ventasAPI.getAll(filters);
-      setFacturas(data.items || []);
+      await loadFacturas(1, buildFacturaFilters());
     } catch (err) {
       console.error(err);
+      showAlert({ type: 'error', title: 'Error al buscar', message: err?.error?.message || 'No se pudieron cargar las facturas.' });
     } finally {
       setFacturaBusy(false);
     }
@@ -202,10 +294,10 @@ export default function EmpleadoDashboard() {
     setFacturaFilters({ numero_factura: '', cliente_correo: '', fecha_desde: '', fecha_hasta: '' });
     setFacturaBusy(true);
     try {
-      const data = await ventasAPI.getAll();
-      setFacturas(data.items || []);
+      await loadFacturas(1, {});
     } catch (err) {
       console.error(err);
+      showAlert({ type: 'error', title: 'Error al cargar', message: err?.error?.message || 'No se pudieron cargar las facturas.' });
     } finally {
       setFacturaBusy(false);
     }
@@ -217,7 +309,11 @@ export default function EmpleadoDashboard() {
       await ventasAPI.downloadInvoicePdf(numero);
     } catch (err) {
       console.error(err);
-      alert('No fue posible descargar la factura.');
+      showAlert({
+        type: 'error',
+        title: 'Descarga fallida',
+        message: 'No fue posible descargar la factura.'
+      });
     } finally {
       setDownloadingId(null);
     }
@@ -355,7 +451,33 @@ export default function EmpleadoDashboard() {
 
         {activeTab === 'ventas' && (
           <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
-            <div className="overflow-x-auto">
+            <div className="flex flex-col gap-3 border-b border-[var(--color-line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-text)]">Órdenes</h3>
+                <p className="text-xs text-[var(--color-muted)]">
+                  {ordenesMeta.total} {ordenesMeta.total === 1 ? 'orden registrada' : 'órdenes registradas'}
+                </p>
+              </div>
+              <div className="relative w-full sm:w-72">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                </svg>
+                <input
+                  type="search"
+                  value={ordenesSearch}
+                  onChange={(e) => setOrdenesSearch(e.target.value)}
+                  placeholder="Buscar por cliente..."
+                  aria-label="Buscar órdenes por cliente"
+                  className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] py-2.5 pl-9 pr-3 text-sm text-[var(--color-text)] outline-none transition placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)]"
+                />
+              </div>
+            </div>
+            <div className={`overflow-x-auto transition-opacity duration-200 ${ordenesLoading ? 'opacity-60' : ''}`}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-widest text-[var(--color-muted)]">
@@ -397,13 +519,23 @@ export default function EmpleadoDashboard() {
                   {ordenes.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
-                        No hay órdenes registradas.
+                        {ordenesSearch
+                          ? `No se encontraron órdenes del cliente "${ordenesSearch}".`
+                          : 'No hay órdenes registradas.'}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+            <Pagination
+              page={ordenesMeta.page}
+              pages={ordenesMeta.pages}
+              total={ordenesMeta.total}
+              size={PAGE_SIZE}
+              disabled={ordenesLoading}
+              onChange={(p) => loadOrdenes(p, ordenesSearch)}
+            />
           </div>
         )}
 
@@ -447,7 +579,15 @@ export default function EmpleadoDashboard() {
             </div>
 
             <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
-              <div className="overflow-x-auto">
+              <div className="flex items-center justify-between gap-3 border-b border-[var(--color-line)] px-5 py-4">
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-text)]">Facturas</h3>
+                  <p className="text-xs text-[var(--color-muted)]">
+                    {facturasMeta.total} {facturasMeta.total === 1 ? 'factura encontrada' : 'facturas encontradas'}
+                  </p>
+                </div>
+              </div>
+              <div className={`overflow-x-auto transition-opacity duration-200 ${facturasLoading || facturaBusy ? 'opacity-60' : ''}`}>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-widest text-[var(--color-muted)]">
@@ -491,13 +631,21 @@ export default function EmpleadoDashboard() {
                     {facturas.length === 0 && (
                       <tr>
                         <td colSpan={8} className="px-5 py-10 text-center text-sm text-[var(--color-muted)]">
-                          No hay facturas registradas aún.
+                          No se encontraron facturas con los filtros aplicados.
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
+              <Pagination
+                page={facturasMeta.page}
+                pages={facturasMeta.pages}
+                total={facturasMeta.total}
+                size={PAGE_SIZE}
+                disabled={facturasLoading || facturaBusy}
+                onChange={handleFacturaPage}
+              />
             </div>
           </div>
         )}

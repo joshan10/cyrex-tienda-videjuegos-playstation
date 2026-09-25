@@ -45,13 +45,20 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const updateUser = (userData) => {
+    if (!userData) return;
+    const next = { ...(user || {}), ...userData };
+    setUser(next);
+    localStorage.setItem('cyrex_user', JSON.stringify(next));
+  };
+
   const logout = () => {
     localStorage.removeItem('cyrex_token');
     localStorage.removeItem('cyrex_user');
     setUser(null);
   };
 
-  const value = { user, loading, verifyEmail, login, register, logout };
+  const value = { user, loading, verifyEmail, login, register, updateUser, logout };
 
   return (
     <AuthContext.Provider value={value}>
