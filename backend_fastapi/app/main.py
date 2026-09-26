@@ -189,6 +189,16 @@ async def validation_error(request: Request, exc: RequestValidationError):
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     logger.exception("Error inesperado: %s", exc)
+    headers = {}
+    origin = request.headers.get("origin")
+    if origin in allowed_origins:
+        # Este handler corre fuera del middleware CORS, sin estas cabeceras el
+        # navegador reporta el 500 como un error de CORS y oculta la causa real.
+        headers = {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
     return JSONResponse(
         status_code=500,
         content={
@@ -198,4 +208,5 @@ async def generic_exception_handler(request: Request, exc: Exception):
                 "message": "Error interno del servidor",
             },
         },
+        headers=headers,
     )

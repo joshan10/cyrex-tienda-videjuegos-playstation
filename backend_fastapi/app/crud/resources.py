@@ -39,9 +39,9 @@ def order_view(db: Session, order: Orden) -> dict:
     data = public_dict(order)
     user = db.get(Usuario, order.usuario_id)
     data.update({
-        "usuario_nombre": user.nombre,
-        "usuario_apellido": user.apellido,
-        "usuario_correo": user.correo,
+        "usuario_nombre": user.nombre if user else None,
+        "usuario_apellido": user.apellido if user else None,
+        "usuario_correo": user.correo if user else None,
     })
     details = db.scalars(
         select(OrdenDetalle).where(OrdenDetalle.orden_id == order.id)
@@ -50,7 +50,10 @@ def order_view(db: Session, order: Orden) -> dict:
     for detail in details:
         item = public_dict(detail)
         product = db.get(Producto, detail.producto_id)
-        item.update({"producto_nombre": product.nombre, "imagen_url": product.imagen_url})
+        item.update({
+            "producto_nombre": product.nombre if product else None,
+            "imagen_url": product.imagen_url if product else None,
+        })
         data["detalles"].append(item)
     return data
 

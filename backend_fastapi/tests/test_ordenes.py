@@ -150,3 +150,34 @@ def test_orden_cliente_no_puede_ver_orden_de_otro(client, db, admin_user, custom
     customer_headers = login_headers(client, customer_user.correo, "Cliente1234!")
     response = client.get(f"/api/ordenes/{order_id}", headers=customer_headers)
     assert response.status_code == 403
+
+
+def test_ordenes_con_datos_huerfanos_no_devuelve_500(client, db, admin_user):
+    """Regresión: órdenes con producto/usuario eliminado no deben romper el listado."""
+    from app.models.entities import Orden, OrdenDetalle
+
+    admin_headers = login_headers(client, admin_user.correo, "Admin1234!")
+
+    orden = Orden(usuario_id=admin_user.id, total=10.0, estado="completada")
+    db.add(orden)
+    db.commit()
+    db.refresh(orden)
+    db.add(OrdenDetalle(
+        orden_id=orden.id,
+        producto_id=999999,
+        cantidad=1,
+        precio_unitario=10.0,
+        subtotal=10.0,
+    ))
+    huerfana = Orden(usuario_id=888888, total=20.0, estado="completada")
+    db.add(huerfana)
+    db.commit()
+
+    response = client.get("/api/ordenes", headers=admin_headers)
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert {o["id"] for o in items} >= {orden.id, huerfana.id}
+
+    response = client.get(f"/api/ordenes/{orden.id}", headers=admin_headers)
+    assert response.status_code == 200
+    assert response.json()["detalles"][0]["producto_nombre"] is None
