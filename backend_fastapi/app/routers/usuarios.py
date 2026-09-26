@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import hash_password
+from app.crud.protecciones import verificar_usuario_eliminable
 from app.crud.resources import get_all_users, count_users, user_view
-from app.dependencies import get_usuario_by_id, require_roles
+from app.dependencies import current_user, get_usuario_by_id, require_roles
 from app.exceptions import ConflictoNegocio
 from app.models.entities import Usuario
 from app.pagination import Paginacion, get_paginacion, paginate_query
@@ -112,9 +113,22 @@ def change_status(
     "/{user_id}",
     summary="Eliminar un usuario",
     status_code=204,
-    responses={204: {"description": "Usuario eliminado"}, 404: {"description": "Usuario no encontrado"}},
+    responses={
+        204: {"description": "Usuario eliminado"},
+        404: {"description": "Usuario no encontrado"},
+        409: {"description": "El usuario tiene ventas activas, órdenes en curso o PQR asociadas"},
+    },
 )
-def remove(usuario: Usuario = Depends(get_usuario_by_id), db: Session = Depends(get_db)):
+def remove(
+    usuario: Usuario = Depends(get_usuario_by_id),
+    user: dict = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    verificar_usuario_eliminable(db, usuario, usuario_actual_id=user["id"])
     db.delete(usuario)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ConflictoNegocio("No se puede eliminar al usuario porque tiene registros asociados.")
     return Response(status_code=204)

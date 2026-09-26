@@ -295,9 +295,10 @@ export default function AdminDashboard() {
       });
     } catch (err) {
       console.error(err);
+      const bloqueo = err?.status === 409;
       showAlert({
-        type: 'error',
-        title: 'No se pudo eliminar',
+        type: bloqueo ? 'warning' : 'error',
+        title: bloqueo ? 'No se puede eliminar' : 'No se pudo eliminar',
         message: err?.error?.message || 'Intenta de nuevo más tarde.'
       });
     } finally {
@@ -500,9 +501,10 @@ export default function AdminDashboard() {
       });
     } catch (err) {
       console.error(err);
+      const bloqueo = err?.status === 409;
       showAlert({
-        type: 'error',
-        title: 'No se pudo eliminar',
+        type: bloqueo ? 'warning' : 'error',
+        title: bloqueo ? 'No se puede eliminar' : 'No se pudo eliminar',
         message: err?.error?.message || 'Intenta de nuevo más tarde.'
       });
     } finally {

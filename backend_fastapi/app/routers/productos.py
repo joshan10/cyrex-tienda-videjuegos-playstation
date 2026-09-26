@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.crud.protecciones import verificar_producto_eliminable
 from app.crud.resources import get_products_with_filters, count_products_with_filters, product_view
 from app.dependencies import get_producto_by_id, require_roles
 from app.exceptions import ConflictoNegocio
@@ -120,16 +121,27 @@ def change_status(
     "/{product_id}",
     summary="Eliminar un producto",
     status_code=204,
-    responses={204: {"description": "Producto eliminado"}, 404: {"description": "Producto no encontrado"}},
+    responses={
+        204: {"description": "Producto eliminado"},
+        404: {"description": "Producto no encontrado"},
+        409: {"description": "El producto tiene ventas o órdenes en curso asociadas"},
+    },
 )
 def remove(
     product: Producto = Depends(get_producto_by_id),
     _: dict = Depends(require_roles("Administrador")),
     db: Session = Depends(get_db),
 ):
+    verificar_producto_eliminable(db, product)
     public_id = product.imagen_public_id
     db.delete(product)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ConflictoNegocio(
+            f'No se puede eliminar el producto "{product.nombre}" porque tiene registros asociados.'
+        )
     if public_id:
         borrar_imagen(public_id)
     return Response(status_code=204)
